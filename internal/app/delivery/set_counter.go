@@ -8,12 +8,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type IndexUsecase interface {
-	Inc(ctx context.Context) (int64, error)
+type SetCoutnerUsecase interface {
+	SetCounter(ctx context.Context) (int64, error)
 }
 
-func (d delivery) Index(w http.ResponseWriter, r *http.Request) {
-	c, err := d.indexUsecase.Inc(r.Context())
+func (d delivery) SetCounter(w http.ResponseWriter, r *http.Request) {
+	c, err := d.setCoutnerUsecase.SetCounter(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("")
@@ -21,7 +21,7 @@ func (d delivery) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	err = d.templ.ExecuteTemplate(w, "index", model.IndexResponse{Count: c})
+	err = d.templ.ExecuteTemplate(w, "count", model.IndexResponse{Count: c})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("can't execute template")

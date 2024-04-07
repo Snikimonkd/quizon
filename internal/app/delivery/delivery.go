@@ -8,15 +8,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type Usecase interface {
+	GetCoutnerUsecase
+	SetCoutnerUsecase
+}
+
 type delivery struct {
-	indexUsecase IndexUsecase
+	getCoutnerUsecase GetCoutnerUsecase
+	setCoutnerUsecase SetCoutnerUsecase
 
 	templ *template.Template
 }
 
 // New - конструктор
 func New(
-	indexUsecase IndexUsecase,
+	usecase Usecase,
 ) (delivery, error) {
 	templ, err := template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -24,8 +30,9 @@ func New(
 	}
 
 	return delivery{
-		indexUsecase: indexUsecase,
-		templ:        templ,
+		getCoutnerUsecase: usecase,
+		setCoutnerUsecase: usecase,
+		templ:             templ,
 	}, nil
 }
 

@@ -1,16 +1,19 @@
 package usecase
 
 type Repository interface {
-	IndexRepository
+	GetCounterRepository
+	SetCounterRepository
 }
 
 type usecase struct {
-	indexRepository IndexRepository
+	getCounterRepository GetCounterRepository
+	setCounterRepository SetCounterRepository
 }
 
 // New - конструктор
 func New(repository Repository) usecase {
 	return usecase{
-		indexRepository: repository,
+		getCounterRepository: repository,
+		setCounterRepository: repository,
 	}
 }

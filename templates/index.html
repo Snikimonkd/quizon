@@ -4,9 +4,17 @@
     <head>
         <title>title here</title>
         <meta charset="UTF-8">
+        <script src="https://unpkg.com/htmx.org@1.9.11"></script>
     </head>
     <body>
-        Count {{ .Count }}
+        <div id="count">
+            {{ template "count" . }}
+        </div>
+        <button hx-target="#count" hx-post="/count">Count</button>
     </body>
 </html>
+{{ end }}
+
+{{ block "count" . }}
+    Count {{ .Count }}
 {{ end }}

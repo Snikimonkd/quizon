@@ -5,8 +5,9 @@ import (
 	"fmt"
 )
 
-func (r repository) Inc(ctx context.Context) (int64, error) {
-	query := `SELECT nextval('index_counter');`
+// GetCounter - получить каунтер
+func (r repository) GetCounter(ctx context.Context) (int64, error) {
+	query := `SELECT last_value FROM index_counter;`
 
 	var res int64
 	err := r.db.QueryRow(ctx, query).Scan(&res)
