@@ -8,8 +8,8 @@ type repository struct {
 	db *pgxpool.Pool
 }
 
-// NewRepository - конструктор
-func NewRepository(db *pgxpool.Pool) repository {
+// New - конструктор
+func New(db *pgxpool.Pool) repository {
 	return repository{
 		db: db,
 	}

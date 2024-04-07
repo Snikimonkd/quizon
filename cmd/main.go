@@ -17,7 +17,7 @@ func main() {
 	ctx := context.Background()
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
-	err := config.ReadConfig()
+	err := config.ReadConfigFile()
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
@@ -27,16 +27,16 @@ func main() {
 		log.Fatal().Err(err).Msg("")
 	}
 
-	d, err := delivery.NewDelivery(usecase.NewUsecase(repository.NewRepository(postgres)))
+	d, err := delivery.New(usecase.New(repository.New(postgres)))
 	if err != nil {
 		log.Fatal().Err(err).Msg("can't create delivery")
 	}
 
 	mux := config.NewMux()
-
 	mux.Get("/", d.Index)
 
 	log.Info().Str("port", ":8080").Msg("server starts")
+
 	err = http.ListenAndServe(":8080", mux)
 	if err != nil {
 		log.Fatal().Err(err).Msg("ListenAndServe()")

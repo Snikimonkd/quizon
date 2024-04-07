@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ReadConfig - прочитать конфиг
-func ReadConfig() error {
+// ReadConfigFile - прочитать конфиг
+func ReadConfigFile() error {
 	viper.SetConfigName("local_config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".config")

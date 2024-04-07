@@ -14,8 +14,8 @@ type delivery struct {
 	templ *template.Template
 }
 
-// NewDelivery - конструктор
-func NewDelivery(
+// New - конструктор
+func New(
 	indexUsecase IndexUsecase,
 ) (delivery, error) {
 	templ, err := template.ParseGlob("templates/*.html")

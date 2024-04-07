@@ -8,8 +8,8 @@ type usecase struct {
 	indexRepository IndexRepository
 }
 
-// NewUsecase - конструктор
-func NewUsecase(repository Repository) usecase {
+// New - конструктор
+func New(repository Repository) usecase {
 	return usecase{
 		indexRepository: repository,
 	}
