@@ -1,0 +1,1 @@
+pg-dsn: "postgresql://quizon-user:quizon-password@localhost:55001/quizon-db?sslmode=disable"
