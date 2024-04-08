@@ -7,14 +7,9 @@
         <script src="https://unpkg.com/htmx.org@1.9.11"></script>
     </head>
     <body>
-        <div id="count">
-            {{ template "count" . }}
-        </div>
-        <button hx-target="#count" hx-post="/count">Count</button>
+        {{ template "registration_form" . }}
+        <hr />
+        {{ template "registered_teams" . }}
     </body>
 </html>
-{{ end }}
-
-{{ block "count" . }}
-    Count {{ .Count }}
 {{ end }}

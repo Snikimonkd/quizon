@@ -33,8 +33,8 @@ func main() {
 	}
 
 	mux := config.NewMux()
-	mux.Get("/", d.GetCounter)
-	mux.Post("/count", d.SetCounter)
+	mux.Get("/", d.ListRegisteredTeams)
+	mux.Post("/register", d.Register)
 
 	log.Info().Str("port", ":8080").Msg("server starts")
 

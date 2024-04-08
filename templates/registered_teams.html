@@ -1,0 +1,14 @@
+{{ block "registered_teams" . }}
+<div>
+    {{ range .Teams }}
+    <div style="display: flex; flex-driection: column">
+        TeamID: <span> {{ .TeamID }} </span>
+        CaptainName: <span> {{ .CaptainName }} </span>
+        CaptainGroup: <span> {{ .CaptainGroup }} </span>
+        CaptainTelegram: <span> {{ .CaptainTelegram }} </span>
+        TeamName: <span> {{ .TeamName }} </span>
+        TeamSize: <span> {{ .TeamSize }} </span>
+    </div>
+    {{ end }}
+</div>
+{{ end }}

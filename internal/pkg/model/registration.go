@@ -5,7 +5,7 @@ import "time"
 type Registration struct {
 	ID              int64
 	GameID          int64
-	TeamID          int64
+	TeamID          string
 	CaptainName     string
 	CaptainGroup    string
 	CaptainTelegram string

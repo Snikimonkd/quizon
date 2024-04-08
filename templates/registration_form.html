@@ -1,0 +1,11 @@
+{{ block "registration_form" . }}
+<form hx-post="/register">
+    TeamID: <input type="text" name="TeamID" />
+    CaptainName: <input type="text" name="CaptainName" />
+    CaptainGroup: <input type="text" name="CaptainGroup" />
+    CaptianTelegram: <input type="text" name="CaptianTelegram" />
+    TeamName: <input type="text" name="TeamName" />
+    TeamSize: <input type="text" name="TeamSize" />
+    <button type="submit">Register</button>
+</form>
+{{ end }}

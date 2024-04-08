@@ -9,13 +9,15 @@ import (
 )
 
 type Usecase interface {
-	GetCoutnerUsecase
-	SetCoutnerUsecase
+	CheckCookieUsecase
+	LoginUsecase
+	// RegisterUsecase
 }
 
 type delivery struct {
-	getCoutnerUsecase GetCoutnerUsecase
-	setCoutnerUsecase SetCoutnerUsecase
+	checkAuthUsecase CheckCookieUsecase
+	loginUsecase     LoginUsecase
+	//	registerUsecase   RegisterUsecase
 
 	templ *template.Template
 }
@@ -30,9 +32,11 @@ func New(
 	}
 
 	return delivery{
-		getCoutnerUsecase: usecase,
-		setCoutnerUsecase: usecase,
-		templ:             templ,
+		checkAuthUsecase: usecase,
+		loginUsecase:     usecase,
+		//		registerUsecase:   usecase,
+
+		templ: templ,
 	}, nil
 }
 

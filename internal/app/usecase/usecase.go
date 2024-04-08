@@ -1,19 +1,19 @@
 package usecase
 
 type Repository interface {
-	GetCounterRepository
-	SetCounterRepository
+	CheckCookieRepository
+	LoginRepository
 }
 
 type usecase struct {
-	getCounterRepository GetCounterRepository
-	setCounterRepository SetCounterRepository
+	checkAuthRepository CheckCookieRepository
+	loginRepository     LoginRepository
 }
 
 // New - конструктор
 func New(repository Repository) usecase {
 	return usecase{
-		getCounterRepository: repository,
-		setCounterRepository: repository,
+		checkAuthRepository: repository,
+		loginRepository:     repository,
 	}
 }
