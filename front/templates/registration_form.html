@@ -1,0 +1,23 @@
+{{ block "registration_form" . }}
+<form hx-post="/register">
+    <label>class команды:</label>
+    <input class="center form_input" type="text" name="TeamID" placeholder="1956" />
+
+    <label>Имя капитана:</label>
+    <input class="center form_input" type="text" name="CaptainName" placeholder="Н.Э. Бауман" />
+
+    <label>Группа:</label>
+    <input class="center form_input" type="text" name="CaptainGroup" placeholder="СМ-31Б" />
+
+    <label>Телеграм:</label>
+    <input class="center form_input" type="text" name="CaptianTelegram" placeholder="@quizon" />
+
+    <label>Название команды:</label>
+    <input class="center form_input" type="text" name="TeamName" placeholder="Ураган Донам" />
+
+    <label>Количество человек:</label>
+    <input class="center form_input" type="text" name="TeamSize" placeholder="от 4 до 8" />
+
+    <button class="center form_input" type="submit">Зарегистрироваться</button>
+</form>
+{{ end }}

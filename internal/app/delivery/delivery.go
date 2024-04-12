@@ -26,7 +26,7 @@ type delivery struct {
 func New(
 	usecase Usecase,
 ) (delivery, error) {
-	templ, err := template.ParseGlob("templates/*.html")
+	templ, err := template.ParseGlob("./front/templates/*.html")
 	if err != nil {
 		return delivery{}, fmt.Errorf("can't parse templates: %w", err)
 	}

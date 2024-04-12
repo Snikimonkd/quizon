@@ -1,0 +1,10 @@
+.center {
+    margin: auto;
+}
+
+.form_input {
+    display: block;
+    margin-top: 11px;
+    width: 256px;
+    height: 51px;
+}

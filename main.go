@@ -31,13 +31,13 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("can't create delivery")
 	}
+	_ = d
 
 	mux := config.NewMux()
 	mux.Get("/", d.ListRegisteredTeams)
-	mux.Post("/register", d.Register)
+	//	mux.Post("/register", d.Register)
 
-	fs := http.FileServer(http.Dir("./front"))
-	mux.Handle("/static/*", http.StripPrefix("/static/", fs))
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./front"))))
 
 	log.Info().Str("port", ":8080").Msg("server starts")
 
