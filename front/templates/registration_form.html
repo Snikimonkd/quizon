@@ -1,5 +1,5 @@
 {{ block "registration_form" . }}
-<form hx-post="/register">
+<form hx-post="/register" hx-target="body" hx-swap="beforeend">
     <label>class команды:</label>
     <input class="center form_input" type="text" name="TeamID" placeholder="1956" />
 

@@ -8,7 +8,7 @@ import (
 
 func (d delivery) ListRegisteredTeams(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	err := d.templ.ExecuteTemplate(w, "index", kek)
+	err := d.templ.ExecuteTemplate(w, "index", "")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("can't execute template")

@@ -3,7 +3,6 @@ package delivery
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/Snikimonkd/quizon/internal/pkg/model"
 	"github.com/rs/zerolog/log"
@@ -12,22 +11,6 @@ import (
 // type RegisterUsecase interface {
 // 	Register(ctx context.Context, req model.Registration) (int64, error)
 // }
-
-var kek = model.RegisteredTeams{
-	Teams: []model.Registration{
-		{
-			ID:              1,
-			GameID:          2,
-			TeamID:          "3",
-			CaptainName:     "captaim name",
-			CaptainGroup:    "captain group",
-			CaptainTelegram: "captain telega",
-			TeamName:        "team name",
-			TeamSize:        8,
-			CreatedAt:       time.Now(),
-		},
-	},
-}
 
 func (d delivery) Register(w http.ResponseWriter, r *http.Request) {
 	var reg model.Registration
@@ -42,10 +25,13 @@ func (d delivery) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	reg.TeamSize = int64(teamSize)
 
-	kek.Teams = append(kek.Teams, reg)
-
+	modal := model.Modal{
+		Header: "header",
+		Text:   "text",
+		Button: "button",
+	}
 	w.WriteHeader(http.StatusOK)
-	err = d.templ.ExecuteTemplate(w, "index", kek)
+	err = d.templ.ExecuteTemplate(w, "modal", modal)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("can't execute template")
