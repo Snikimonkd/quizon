@@ -1,0 +1,15 @@
+{{ block "games" . }}
+{{ range .Games }}
+<div hx-boost="true">
+    <div class="center">Регистрация на игру</div>
+    <div class="center">начало игры: {{ .StartTime }} </div>
+    <div class="center">локация: {{ .Location }} </div>
+    <div class="center">открытие реги: {{ .RegistrationStart }} </div>
+    <div class="center">количество команд: {{ .TeamsAmount }} </div>
+    <div class="center">резерв: {{ .Reserve }} </div>
+    <div class="center">коммент: {{ .Comment }} </div>
+</div>
+
+<button hx-get="/registration_form" hx-target="#main">Зарегистрироваться</button>
+{{ end }}
+{{ end }}

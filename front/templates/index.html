@@ -9,9 +9,13 @@
         <link rel="stylesheet" type="text/css" href="/static/css/style.css">
     </head>
     <body>
-        {{ template "registration_form" . }}
-        <hr />
-        {{ template "registered_teams" . }}
+        <div id="header"></div>
+
+        <div id="main">
+            {{ template "games" . }}
+        </div>
+
+        <div id="footer"></div>
     </body>
 </html>
 {{ end }}

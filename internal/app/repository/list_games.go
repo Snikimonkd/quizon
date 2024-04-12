@@ -16,7 +16,7 @@ func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([
            name,
            teams_amount,
            reserve,
-           restration_start,
+           registration_start,
            comment,
            created_at,
            updated_at

@@ -11,7 +11,7 @@ CREATE TABLE cookies (
     expires timestamptz NOT NULL
 );
 
-CREATE UNIQUE INDEX cookies_uniq_ids ON cookies(name, cookie);
+CREATE UNIQUE INDEX cookies_uniq_ids ON cookies(admin_name, value);
 -- +goose StatementEnd
 
 -- +goose Down

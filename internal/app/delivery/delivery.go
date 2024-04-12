@@ -11,12 +11,14 @@ import (
 type Usecase interface {
 	CheckCookieUsecase
 	LoginUsecase
+	ListGamesUsecase
 	// RegisterUsecase
 }
 
 type delivery struct {
 	checkAuthUsecase CheckCookieUsecase
 	loginUsecase     LoginUsecase
+	listGamesUsecase ListGamesUsecase
 	//	registerUsecase   RegisterUsecase
 
 	templ *template.Template
@@ -34,6 +36,7 @@ func New(
 	return delivery{
 		checkAuthUsecase: usecase,
 		loginUsecase:     usecase,
+		listGamesUsecase: usecase,
 		//		registerUsecase:   usecase,
 
 		templ: templ,
