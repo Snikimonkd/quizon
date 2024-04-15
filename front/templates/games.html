@@ -1,6 +1,6 @@
 {{ block "games" . }}
 {{ range .Games }}
-<div class="center">
+<div id="game-{{ .ID }}" class="center">
     <div class="center">Регистрация на игру</div>
     <div class="center">начало игры: {{ .StartTime }} </div>
     <div class="center">локация: {{ .Location }} </div>
@@ -10,6 +10,18 @@
     <div class="center">коммент: {{ .Comment }} </div>
 </div>
 
-<button hx-get="/registration_form" hx-target="#main">Зарегистрироваться</button>
+
+<button
+    hx-get="/registration_form"
+    hx-target="#main"
+    {{ if .IsActive }}
+        class="active"
+    {{ else }}
+        class="inactive"
+        disabled
+    {{ end }}>
+    {{ .ButtonText }}
+</button>
+
 {{ end }}
 {{ end }}

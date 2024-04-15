@@ -5,22 +5,26 @@ import (
 	"fmt"
 
 	"github.com/Snikimonkd/quizon/internal/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 // ListGames - вывести игры
 func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([]model.Game, error) {
+	log.Info().Msg("here")
 	query := ` 
-    SELECT id,
-           location,
-           start_time,
-           name,
-           teams_amount,
-           reserve,
-           registration_start,
-           comment,
-           created_at,
-           updated_at
-    FROM games
+    SELECT g.id,
+           g.location,
+           g.start_time,
+           g.name,
+           g.teams_amount,
+           g.reserve,
+           g.registration_start,
+           g.comment,
+           g.created_at,
+           g.updated_at,
+           count(r.team_id)
+    FROM games g LEFT JOIN registrations r ON g.id = r.game_id
+    GROUP BY g.id
     ORDER BY start_time DESC
     LIMIT $1
     OFFSET $2;
@@ -44,6 +48,7 @@ func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([
 			&buf.Comment,
 			&buf.CreatedAt,
 			&buf.UpdatedAt,
+			&buf.RegisteredTeams,
 		)
 		if cerr != nil {
 			return nil, fmt.Errorf("can't scan game: %w", cerr)
@@ -55,6 +60,8 @@ func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([
 	if err != nil {
 		return nil, fmt.Errorf("error while scanning: %w", err)
 	}
+
+	log.Info().Msgf("len result: %v", len(res))
 
 	return res, nil
 }
