@@ -15,3 +15,13 @@ type Game struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
+
+type GameEntry struct {
+	Game
+	ButtonText string
+	IsActive   bool
+}
+
+type ListGamesResponse struct {
+	Games []GameEntry
+}

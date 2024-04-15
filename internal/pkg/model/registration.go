@@ -13,3 +13,13 @@ type Registration struct {
 	TeamSize        int64
 	CreatedAt       time.Time
 }
+
+type Modal struct {
+	Header string
+	Text   string
+	Button string
+}
+
+type RegistrationForm struct {
+	Modal *Modal
+}

@@ -1,6 +1,6 @@
 {{ block "registration_form" . }}
-<form hx-post="/register" hx-target="body" hx-swap="beforeend">
-    <label>class команды:</label>
+<form hx-post="/register" hx-target="#main">
+    <label>ID команды:</label>
     <input class="center form_input" type="text" name="TeamID" placeholder="1956" />
 
     <label>Имя капитана:</label>
@@ -20,4 +20,7 @@
 
     <button class="center form_input" type="submit">Зарегистрироваться</button>
 </form>
+{{ if .Modal }}
+    {{ template "modal" .Modal }}
+{{ end }}
 {{ end }}

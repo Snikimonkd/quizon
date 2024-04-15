@@ -5,12 +5,10 @@ import (
 	"fmt"
 
 	"github.com/Snikimonkd/quizon/internal/pkg/model"
-	"github.com/rs/zerolog/log"
 )
 
 // ListGames - вывести игры
 func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([]model.Game, error) {
-	log.Info().Msg("here")
 	query := ` 
     SELECT g.id,
            g.location,
@@ -60,8 +58,6 @@ func (r repository) ListGames(ctx context.Context, limit int64, offset int64) ([
 	if err != nil {
 		return nil, fmt.Errorf("error while scanning: %w", err)
 	}
-
-	log.Info().Msgf("len result: %v", len(res))
 
 	return res, nil
 }
