@@ -1,27 +1,35 @@
 {{ block "games" . }}
 {{ range .Games }}
-<div id="game-{{ .ID }}" class="center">
-    <div class="center">Регистрация на игру</div>
-    <div class="center">начало игры: {{ .StartTime }} </div>
-    <div class="center">локация: {{ .Location }} </div>
-    <div class="center">открытие реги: {{ .RegistrationStart }} </div>
-    <div class="center">количество команд: {{ .TeamsAmount }} </div>
-    <div class="center">резерв: {{ .Reserve }} </div>
-    <div class="center">коммент: {{ .Comment }} </div>
+<div class="game">
+    <div class="game_header">
+        <div class="date"> {{ .Date }} </div>
+        <div class="day_of_week"> {{ .Weekday }} </div>
+    </div>
+    <div class="game_inner">
+        <div class="game_title">
+            <div class="game_name">{{ .Name }}</div>
+            <div class="horizontal_line"></div>
+            <div class="game_comment">{{ .Comment }}</div>
+        </div>
+
+        <div class="game_info">
+            <div class="date"> {{ .Time }} </div>
+            <div class="day_of_week"> {{ .Location }} </div>
+        </div>
+
+        <button
+            hx-get="/registration_form/{{ .ID }}"
+            hx-target="#main"
+            {{ if .IsActive }}
+            class="active"
+            {{ else }}
+            class="inactive"
+            disabled
+            {{ end }}>
+            {{ .ButtonText }}
+        </button>
+    </div>
 </div>
-
-
-<button
-    hx-get="/registration_form/{{ .ID }}"
-    hx-target="#main"
-    {{ if .IsActive }}
-        class="active"
-    {{ else }}
-        class="inactive"
-        disabled
-    {{ end }}>
-    {{ .ButtonText }}
-</button>
 
 {{ end }}
 {{ end }}

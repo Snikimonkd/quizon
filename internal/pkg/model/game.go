@@ -20,6 +20,8 @@ type GameEntry struct {
 	Game
 	ButtonText string
 	IsActive   bool
+	Date       string
+	Weekday    string
 }
 
 type ListGamesResponse struct {
