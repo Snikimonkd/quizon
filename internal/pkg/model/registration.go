@@ -14,13 +14,12 @@ type Registration struct {
 	CreatedAt       time.Time
 }
 
+type RegistrationForm struct {
+	GameID int64
+}
+
 type Modal struct {
 	Header string
 	Text   string
 	Button string
-}
-
-type RegistrationForm struct {
-	Registration *Registration
-	Modal        *Modal
 }

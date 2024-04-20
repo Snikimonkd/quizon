@@ -12,14 +12,14 @@ type Usecase interface {
 	CheckCookieUsecase
 	LoginUsecase
 	ListGamesUsecase
-	// RegisterUsecase
+	RegisterUsecase
 }
 
 type delivery struct {
 	checkAuthUsecase CheckCookieUsecase
 	loginUsecase     LoginUsecase
 	listGamesUsecase ListGamesUsecase
-	//	registerUsecase   RegisterUsecase
+	registerUsecase  RegisterUsecase
 
 	templ *template.Template
 }
@@ -37,7 +37,7 @@ func New(
 		checkAuthUsecase: usecase,
 		loginUsecase:     usecase,
 		listGamesUsecase: usecase,
-		//		registerUsecase:   usecase,
+		registerUsecase:  usecase,
 
 		templ: templ,
 	}, nil

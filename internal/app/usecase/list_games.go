@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Snikimonkd/quizon/internal/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type ListGamesRepository interface {
@@ -20,6 +21,7 @@ func (u usecase) ListGames(ctx context.Context, limit int64, offset int64) (mode
 	entries := make([]model.GameEntry, 0, len(games))
 	now := time.Now()
 	for _, game := range games {
+		log.Info().Msgf("registered teams: %d", game.RegisteredTeams)
 		entry := model.GameEntry{
 			Game: game,
 		}

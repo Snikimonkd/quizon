@@ -12,7 +12,7 @@
 
 
 <button
-    hx-get="/registration_form"
+    hx-get="/registration_form/{{ .ID }}"
     hx-target="#main"
     {{ if .IsActive }}
         class="active"

@@ -1,45 +1,29 @@
 {{ block "registration_form" . }}
 <form hx-post="/register" hx-swap="afterend">
+    <input type=hidden name="GameID" value="{{ .GameID }}">
+
     <label>ID команды:</label>
     <input class="center form_input" type="text" name="TeamID" placeholder="1956" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
     </input>
 
     <label>Имя капитана:</label>
     <input class="center form_input" type="text" name="CaptainName" placeholder="Н.Э. Бауман" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
     </input>
 
     <label>Группа:</label>
     <input class="center form_input" type="text" name="CaptainGroup" placeholder="СМ-31Б" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
     </input>
 
     <label>Телеграм:</label>
-    <input class="center form_input" type="text" name="CaptianTelegram" placeholder="@quizon" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
+    <input class="center form_input" type="text" name="CaptainTelegram" placeholder="@quizon" required>
     </input>
 
     <label>Название команды:</label>
     <input class="center form_input" type="text" name="TeamName" placeholder="Ураган Донам" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
     </input>
 
     <label>Количество человек:</label>
     <input class="center form_input" type="number" name="TeamSize" placeholder="от 4 до 8" required>
-    {{ if .Registration }}
-        {{ .TeamID }}
-    {{ end }}
     </input>
 
     <button class="center form_input" type="submit">Зарегистрироваться</button>

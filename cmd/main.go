@@ -35,7 +35,7 @@ func main() {
 	mux := config.NewMux()
 	mux.Get("/", d.Index)
 	mux.Get("/list_games", d.ListGames)
-	mux.Get("/registration_form", d.RegistrationForm)
+	mux.Get("/registration_form/{id}", d.RegistrationForm)
 	mux.Post("/register", d.Register)
 
 	fs := http.FileServer(http.Dir("./front"))
