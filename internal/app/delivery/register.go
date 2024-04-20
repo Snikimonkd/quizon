@@ -28,9 +28,9 @@ func (d delivery) Register(w http.ResponseWriter, r *http.Request) {
 	reg.TeamSize = int64(teamSize)
 
 	modal := model.Modal{
-		Header: "header",
-		Text:   "text",
-		Button: "button",
+		Header: "заголовок",
+		Text:   "вы там чето справились с первым заданием хуе мое так держать",
+		Button: "кнопка",
 	}
 
 	w.WriteHeader(http.StatusOK)

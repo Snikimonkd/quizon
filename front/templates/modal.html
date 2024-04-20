@@ -1,11 +1,11 @@
 {{ block "modal" . }}
-<div id="modal" _="on closeModal add .closing then wait for animationend then remove me">
-	<div class="modal-underlay" _="on click trigger closeModal"></div>
-	<div class="modal-content">
-        <h1> Заголовок </h1>
+<div id="popup_id" class="overlay">
+    <div class="popup">
+        <h1> {{ .Header }} </h1>
+        <div>
         {{ .Text }}
-        <button hx-get="/list_games" hx-target="#main" _="on click trigger closeModal"> КвизON </button>
+        </div>
+        <button class="close" hx-get="/list_games" hx-target="#main" _="on click trigger closeModal"> {{ .Button }} </button>
     </div>
 </div>
 {{ end }}
-
