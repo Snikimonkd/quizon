@@ -15,6 +15,7 @@ type RegisterUsecase interface {
 
 func (d delivery) Register(w http.ResponseWriter, r *http.Request) {
 	var reg model.Registration
+
 	reg.TeamID = r.FormValue("TeamID")
 	reg.CaptainName = r.FormValue("CaptainName")
 	reg.CaptainGroup = r.FormValue("CaptainGroup")
@@ -34,7 +35,8 @@ func (d delivery) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	err = d.templ.ExecuteTemplate(w, "registration_form", model.RegistrationForm{Modal: &modal})
+	// err = d.templ.ExecuteTemplate(w, "registration_form", model.RegistrationForm{Modal: &modal})
+	err = d.templ.ExecuteTemplate(w, "modal", modal)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("can't execute template")

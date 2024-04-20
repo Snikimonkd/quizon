@@ -21,5 +21,6 @@ type Modal struct {
 }
 
 type RegistrationForm struct {
-	Modal *Modal
+	Registration *Registration
+	Modal        *Modal
 }

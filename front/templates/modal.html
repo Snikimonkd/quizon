@@ -1,11 +1,11 @@
 {{ block "modal" . }}
-<div id="popup_id" class="overlay">
+<div class="overlay">
     <div class="popup">
         <h1> {{ .Header }} </h1>
         <div>
         {{ .Text }}
         </div>
-        <button class="close" hx-get="/list_games" hx-target="#main" _="on click trigger closeModal"> {{ .Button }} </button>
+        <button class="close" hx-get="/list_games" hx-target="#main"> {{ .Button }} </button>
     </div>
 </div>
 {{ end }}
