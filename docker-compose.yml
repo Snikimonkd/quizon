@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  quizon-app:
+    build:
+      context: .
+      dockerfile: ./build/Dockerfile
+    ports:
+      - "8000:8000"
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - PGDATA=/data/postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/data/postgres
+volumes:
+  pgdata:
