@@ -1,0 +1,29 @@
+package testsupport
+
+import (
+	"context"
+	"sync"
+	"testing"
+
+	"quizon_bot/internal/config"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+	db *pgxpool.Pool
+	s  sync.Once
+)
+
+// ConnectToTestPostgres - подключиться к базе в тестах
+func ConnectToTestPostgres(ctx context.Context, t *testing.T) *pgxpool.Pool {
+	s.Do(func() {
+		var err error
+		db, err = config.ConnectToPostgres(context.Background())
+		if err != nil {
+			t.Fatalf("can't connect to db: %v", err)
+		}
+	})
+
+	return db
+}
