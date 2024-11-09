@@ -36,7 +36,7 @@ func (u usecase) RegisterAvailable(ctx context.Context, gameID int64) (httpModel
 		return httpModel.Available, nil
 	}
 
-	if regsAmount < restrictionsLimitations.MainAmount+restrictionsLimitations.ReserverAmount {
+	if regsAmount < restrictionsLimitations.MainAmount+restrictionsLimitations.ReserveAmount {
 		return httpModel.Reserve, nil
 	}
 

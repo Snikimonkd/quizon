@@ -1,0 +1,47 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: quizon server api
+paths:
+  /list-registrations:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRegistrationsResponse'
+
+components:
+  schemas:
+    ListRegistrationsResponse:
+      type: array
+      properties:
+        items:
+          $ref: '#/components/schemas/Registration'
+    Registration:
+      type: object
+      properties:
+        items:
+          number:
+            type: integer
+            format: int64
+            required: true
+          telegram:
+            type: string
+            required: true
+          team_id:
+            type: string
+            required: false
+          team_name:
+            type: string
+            required: true
+          captain_name:
+            type: string
+            required: true
+          phone:
+            type: string
+            required: true
+          group_name:
+            type: string
+            required: false

@@ -14,7 +14,7 @@ CREATE TABLE games (
     -- количество команд на игре
     main_amount bigint NOT NULL,
     -- количество команд в резерве
-    reserver_amount bigint NOT NULL,
+    reserve_amount bigint NOT NULL,
 
     -- время открытия регистрации
     registartion_open_time timestamptz NOT NULL

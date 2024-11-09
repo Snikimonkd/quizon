@@ -12,6 +12,7 @@ type Repository interface {
 	RegisterRepository
 	RegistrationsRepository
 	RegisterAvailableRepository
+	CreateGameRepository
 }
 
 type usecase struct {

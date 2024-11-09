@@ -23,7 +23,7 @@ type gamesTable struct {
 	Location             postgres.ColumnString
 	Name                 postgres.ColumnString
 	MainAmount           postgres.ColumnInteger
-	ReserverAmount       postgres.ColumnInteger
+	ReserveAmount        postgres.ColumnInteger
 	RegistartionOpenTime postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
@@ -71,10 +71,10 @@ func newGamesTableImpl(schemaName, tableName, alias string) gamesTable {
 		LocationColumn             = postgres.StringColumn("location")
 		NameColumn                 = postgres.StringColumn("name")
 		MainAmountColumn           = postgres.IntegerColumn("main_amount")
-		ReserverAmountColumn       = postgres.IntegerColumn("reserver_amount")
+		ReserveAmountColumn        = postgres.IntegerColumn("reserve_amount")
 		RegistartionOpenTimeColumn = postgres.TimestampzColumn("registartion_open_time")
-		allColumns                 = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserverAmountColumn, RegistartionOpenTimeColumn}
-		mutableColumns             = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserverAmountColumn, RegistartionOpenTimeColumn}
+		allColumns                 = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserveAmountColumn, RegistartionOpenTimeColumn}
+		mutableColumns             = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserveAmountColumn, RegistartionOpenTimeColumn}
 	)
 
 	return gamesTable{
@@ -87,7 +87,7 @@ func newGamesTableImpl(schemaName, tableName, alias string) gamesTable {
 		Location:             LocationColumn,
 		Name:                 NameColumn,
 		MainAmount:           MainAmountColumn,
-		ReserverAmount:       ReserverAmountColumn,
+		ReserveAmount:        ReserveAmountColumn,
 		RegistartionOpenTime: RegistartionOpenTimeColumn,
 
 		AllColumns:     allColumns,

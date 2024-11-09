@@ -22,15 +22,15 @@ func (u usecase) Registrations(ctx context.Context, gameID int64) ([]httpModel.R
 	for i, v := range res {
 		ret = append(ret,
 			httpModel.Registration{
-				Number:       int64(i + 1),
-				Telegram:     v.Telegram,
-				TeamID:       v.TeamID,
-				TeamName:     v.TeamName,
-				CaptainName:  v.CaptainName,
-				Phone:        v.Phone,
-				GroupName:    v.GroupName,
-				TeamSize:     v.TeamSize,
-				RegisteredAt: utils.PrettyTime(v.CreatedAt),
+				Number:        int64(i + 1),
+				Telegram:      v.Telegram,
+				TeamID:        v.TeamID,
+				TeamName:      v.TeamName,
+				CaptainName:   v.CaptainName,
+				Phone:         v.Phone,
+				GroupName:     v.GroupName,
+				PlayersAmount: v.PlayersAmount,
+				RegisteredAt:  utils.PrettyTime(v.CreatedAt),
 			},
 		)
 	}

@@ -56,7 +56,7 @@ func (r repository) GetGame(ctx context.Context, gameID int64) (model.Games, err
 		&res.Location,
 		&res.Name,
 		&res.MainAmount,
-		&res.ReserverAmount,
+		&res.ReserveAmount,
 		&res.RegistartionOpenTime,
 	)
 	if err != nil {
@@ -92,7 +92,7 @@ func (r repository) Registrations(ctx context.Context, gameID int64) ([]model.Re
 			&buf.CaptainName,
 			&buf.Phone,
 			&buf.Telegram,
-			&buf.TeamSize,
+			&buf.PlayersAmount,
 			&buf.GroupName,
 			&buf.TeamID,
 		)
@@ -268,13 +268,17 @@ func (r repository) CheckTeamsAmount(ctx context.Context, tx pgx.Tx) (int64, err
 // 	return nil
 // }
 
-func (r repository) GenerateTeamID(ctx context.Context, tx pgx.Tx) (int64, error) {
-	query := `SELECT nextval('team_id_seq');`
-	var res int64
-	err := tx.QueryRow(ctx, query).Scan(&res)
+func (r repository) CreateGame(ctx context.Context, game model.Games) error {
+	stmt := table.Games.INSERT(
+		table.Games.AllColumns.Except(table.Games.ID),
+	).MODEL(
+		game,
+	)
+	query, args := stmt.Sql()
+	_, err := r.db.Exec(ctx, query, args)
 	if err != nil {
-		return 0, fmt.Errorf("can't generate team_id: %w", err)
+		return fmt.Errorf("can't insert into games: %w", err)
 	}
 
-	return res, nil
+	return nil
 }

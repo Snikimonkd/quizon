@@ -18,6 +18,6 @@ type Games struct {
 	Location             string
 	Name                 string
 	MainAmount           int64
-	ReserverAmount       int64
+	ReserveAmount        int64
 	RegistartionOpenTime time.Time
 }

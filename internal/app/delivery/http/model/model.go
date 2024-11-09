@@ -1,14 +1,25 @@
 package model
 
+import "time"
+
+type CreateGameRequest struct {
+	StartTime            time.Time `json:"start_time"`
+	Location             string    `json:"location"`
+	Name                 string    `json:"name"`
+	MainAmount           int64     `json:"main_amount"`
+	ReserveAmount        int64     `json:"reserve_amount"`
+	RegistartionOpenTime time.Time `json:"registartion_open_time"`
+}
+
 type Register struct {
-	GameID      int64   `json:"game_id"`
-	TgContact   string  `json:"telegram"`
-	TeamID      *string `json:"team_id,omitempty"`
-	TeamName    string  `json:"team_name"`
-	CaptainName string  `json:"captain_name"`
-	Phone       string  `json:"phone"`
-	GroupName   *string `json:"group_name"`
-	TeamSize    string  `json:"team_size"`
+	GameID        int64   `json:"game_id"`
+	TgContact     string  `json:"telegram"`
+	TeamID        *string `json:"team_id,omitempty"`
+	TeamName      string  `json:"team_name"`
+	CaptainName   string  `json:"captain_name"`
+	Phone         string  `json:"phone"`
+	GroupName     *string `json:"group_name"`
+	PlayersAmount string  `json:"players_amount"`
 }
 
 type RegisterAvailableRequest struct {
@@ -16,15 +27,15 @@ type RegisterAvailableRequest struct {
 }
 
 type Registration struct {
-	Number       int64   `json:"number"`
-	Telegram     string  `json:"tg_contact"`
-	TeamID       *string `json:"team_id,omitempty"`
-	TeamName     string  `json:"team_name"`
-	CaptainName  string  `json:"captain_name"`
-	Phone        string  `json:"phone"`
-	GroupName    *string `json:"group_name"`
-	TeamSize     string  `json:"amount"`
-	RegisteredAt string  `json:"registered_at"`
+	Number        int64   `json:"number"`
+	Telegram      string  `json:"tg_contact"`
+	TeamID        *string `json:"team_id,omitempty"`
+	TeamName      string  `json:"team_name"`
+	CaptainName   string  `json:"captain_name"`
+	Phone         string  `json:"phone"`
+	GroupName     *string `json:"group_name"`
+	PlayersAmount string  `json:"players_amount"`
+	RegisteredAt  string  `json:"registered_at"`
 }
 
 type RegisterAvailableResponse struct {

@@ -14,15 +14,15 @@ type RegisterRepository interface {
 func (u usecase) Register(ctx context.Context, req httpModel.Register) error {
 	now := u.clock.Now()
 	domainModel := model.Registrations{
-		GameID:      req.GameID,
-		CreatedAt:   now,
-		TeamName:    req.TeamName,
-		CaptainName: req.CaptainName,
-		Phone:       req.Phone,
-		Telegram:    req.TgContact,
-		TeamSize:    req.TeamSize,
-		GroupName:   req.GroupName,
-		TeamID:      req.TeamID,
+		GameID:        req.GameID,
+		CreatedAt:     now,
+		TeamName:      req.TeamName,
+		CaptainName:   req.CaptainName,
+		Phone:         req.Phone,
+		Telegram:      req.TgContact,
+		PlayersAmount: req.PlayersAmount,
+		GroupName:     req.GroupName,
+		TeamID:        req.TeamID,
 	}
 
 	err := u.repository.Register(ctx, domainModel)
