@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	httpModel "quizon_bot/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/http/model"
 )
 
 type RegisterUsecase interface {

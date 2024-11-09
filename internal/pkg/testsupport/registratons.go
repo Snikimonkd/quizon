@@ -2,8 +2,8 @@ package testsupport
 
 import (
 	"context"
-	"quizon_bot/internal/generated/postgres/public/model"
-	"quizon_bot/internal/generated/postgres/public/table"
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/generated/postgres/public/table"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"

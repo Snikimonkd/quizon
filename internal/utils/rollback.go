@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"quizon_bot/internal/pkg/logger"
+	"quizon/internal/pkg/logger"
 )
 
 // RollBackUnlessCommitted - роллбэк, если транзакция не закоммичена

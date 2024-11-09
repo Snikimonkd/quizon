@@ -12,13 +12,13 @@ import (
 )
 
 type Registrations struct {
-	TgContact   string
-	TeamID      *string
+	GameID      int64
+	CreatedAt   time.Time
 	TeamName    string
 	CaptainName string
 	Phone       string
-	GroupName   string
-	Amount      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	Telegram    string
+	TeamSize    string
+	GroupName   *string
+	TeamID      *string
 }

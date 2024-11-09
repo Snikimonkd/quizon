@@ -3,36 +3,37 @@ package usecase
 import (
 	"context"
 
-	"github.com/samber/lo"
-
-	httpModel "quizon_bot/internal/app/delivery/http/model"
-	"quizon_bot/internal/generated/postgres/public/model"
-	"quizon_bot/internal/utils"
+	httpModel "quizon/internal/app/delivery/http/model"
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/utils"
 )
 
 type RegistrationsRepository interface {
-	Registrations(ctx context.Context) ([]model.Registrations, error)
+	Registrations(ctx context.Context, gameID int64) ([]model.Registrations, error)
 }
 
-func (u usecase) Registrations(ctx context.Context) ([]httpModel.Registration, error) {
-	res, err := u.registrationsRepository.Registrations(ctx)
+func (u usecase) Registrations(ctx context.Context, gameID int64) ([]httpModel.Registration, error) {
+	res, err := u.repository.Registrations(ctx, gameID)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := lo.Map(res, func(item model.Registrations, index int) httpModel.Registration {
-		return httpModel.Registration{
-			Number:       int64(index),
-			TgContact:    item.TgContact,
-			TeamID:       item.TeamID,
-			TeamName:     item.TeamName,
-			CaptainName:  item.CaptainName,
-			Phone:        item.Phone,
-			GroupName:    item.GroupName,
-			Amount:       item.Amount,
-			RegisteredAt: utils.PrettyTime(item.CreatedAt),
-		}
-	})
+	ret := make([]httpModel.Registration, 0, len(res))
+	for i, v := range res {
+		ret = append(ret,
+			httpModel.Registration{
+				Number:       int64(i + 1),
+				Telegram:     v.Telegram,
+				TeamID:       v.TeamID,
+				TeamName:     v.TeamName,
+				CaptainName:  v.CaptainName,
+				Phone:        v.Phone,
+				GroupName:    v.GroupName,
+				TeamSize:     v.TeamSize,
+				RegisteredAt: utils.PrettyTime(v.CreatedAt),
+			},
+		)
+	}
 
 	return ret, nil
 }

@@ -1,4 +1,4 @@
-module quizon_bot
+module quizon
 
 go 1.22
 
@@ -9,7 +9,6 @@ require (
 	github.com/go-jet/jet/v2 v2.7.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/samber/lo v1.38.1
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -26,4 +25,5 @@ require (
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"quizon_bot/internal/config"
+	"quizon/internal/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

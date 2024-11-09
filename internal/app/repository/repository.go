@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/lo"
 
-	"quizon_bot/internal/generated/postgres/public/model"
-	"quizon_bot/internal/generated/postgres/public/table"
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/generated/postgres/public/table"
 )
 
 type repository struct {
@@ -23,9 +23,11 @@ func NewRepository(db *pgxpool.Pool) repository {
 	}
 }
 
-func (r repository) RegistrationsAmount(ctx context.Context) (int64, error) {
+func (r repository) RegistrationsAmount(ctx context.Context, gameID int64) (int64, error) {
 	stmt := table.Registrations.SELECT(
 		postgres.COUNT(postgres.STAR),
+	).WHERE(
+		table.Registrations.GameID.EQ(postgres.Int64(gameID)),
 	)
 
 	query, args := stmt.Sql()
@@ -38,19 +40,24 @@ func (r repository) RegistrationsAmount(ctx context.Context) (int64, error) {
 	return lo.FromPtr(res), nil
 }
 
-func (r repository) SelectRegistrationRestrictions(ctx context.Context) (model.Games, error) {
+func (r repository) GetGame(ctx context.Context, gameID int64) (model.Games, error) {
 	stmt := table.Games.SELECT(
-		table.Games.Reserve,
-		table.Games.Closed,
-		table.Games.OpenningTime,
-	).LIMIT(1)
+		table.Games.AllColumns,
+	).WHERE(
+		table.Games.ID.EQ(postgres.Int64(gameID)),
+	)
 
 	query, args := stmt.Sql()
 	var res model.Games
 	err := r.db.QueryRow(ctx, query, args...).Scan(
-		&res.Reserve,
-		&res.Closed,
-		&res.OpenningTime,
+		&res.ID,
+		&res.CreatedAt,
+		&res.StartTime,
+		&res.Location,
+		&res.Name,
+		&res.MainAmount,
+		&res.ReserverAmount,
+		&res.RegistartionOpenTime,
 	)
 	if err != nil {
 		return model.Games{}, fmt.Errorf("can't get registration restrictions: %w", err)
@@ -59,9 +66,11 @@ func (r repository) SelectRegistrationRestrictions(ctx context.Context) (model.G
 	return res, nil
 }
 
-func (r repository) Registrations(ctx context.Context) ([]model.Registrations, error) {
+func (r repository) Registrations(ctx context.Context, gameID int64) ([]model.Registrations, error) {
 	stmt := table.Registrations.SELECT(
 		table.Registrations.AllColumns,
+	).WHERE(
+		table.Registrations.GameID.EQ(postgres.Int64(gameID)),
 	).ORDER_BY(
 		table.Registrations.CreatedAt.ASC(),
 	)
@@ -77,20 +86,24 @@ func (r repository) Registrations(ctx context.Context) ([]model.Registrations, e
 	for rows.Next() {
 		var buf model.Registrations
 		rErr := rows.Scan(
-			&buf.TgContact,
-			&buf.TeamID,
+			&buf.GameID,
+			&buf.CreatedAt,
 			&buf.TeamName,
 			&buf.CaptainName,
 			&buf.Phone,
+			&buf.Telegram,
+			&buf.TeamSize,
 			&buf.GroupName,
-			&buf.Amount,
-			&buf.CreatedAt,
-			&buf.UpdatedAt,
+			&buf.TeamID,
 		)
+
 		if rErr != nil {
-			return nil, fmt.Errorf("can't scan games: %w", err)
+			return nil, fmt.Errorf("can't scan games: %w", rErr)
 		}
 		res = append(res, buf)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error while scanning: %w", err)
 	}
 
 	return res, nil

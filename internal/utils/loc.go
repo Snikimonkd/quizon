@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"quizon_bot/internal/pkg/logger"
+	"quizon/internal/pkg/logger"
 )
 
 // LocMsk - default timezone

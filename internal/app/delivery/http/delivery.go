@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"quizon_bot/internal/pkg/logger"
+	"quizon/internal/pkg/logger"
 )
 
 type Usecase interface {

@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	httpDelivery "quizon_bot/internal/app/delivery/http"
-	"quizon_bot/internal/app/repository"
-	"quizon_bot/internal/app/usecase"
-	"quizon_bot/internal/config"
-	"quizon_bot/internal/pkg/logger"
+	httpDelivery "quizon/internal/app/delivery/http"
+	"quizon/internal/app/repository"
+	"quizon/internal/app/usecase"
+	"quizon/internal/config"
+	"quizon/internal/pkg/logger"
 )
 
 const port string = "8080"
@@ -18,13 +18,13 @@ func main() {
 	logger.Infof("runtime start")
 	ctx := context.Background()
 
-	router := config.NewRouter()
-
 	db, err := config.ConnectToPostgres(ctx)
 	if err != nil {
 		logger.Fatalf("can't start postgres: %v", err)
 	}
 	logger.Infof("db ready")
+
+	router := config.NewRouter()
 
 	repository := repository.NewRepository(db)
 	usecase := usecase.NewUsecase(repository)
@@ -39,10 +39,10 @@ func main() {
 	server := http.Server{
 		Addr:              ":" + port,
 		Handler:           router,
-		ReadTimeout:       time.Second,
-		ReadHeaderTimeout: time.Second,
-		WriteTimeout:      time.Second,
-		IdleTimeout:       time.Second,
+		ReadTimeout:       time.Second * 5,
+		ReadHeaderTimeout: time.Second * 5,
+		WriteTimeout:      time.Second * 5,
+		IdleTimeout:       time.Second * 5,
 	}
 	err = server.ListenAndServe()
 	if err != nil {

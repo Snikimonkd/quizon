@@ -12,7 +12,12 @@ import (
 )
 
 type Games struct {
-	Reserve      int64
-	Closed       int64
-	OpenningTime time.Time
+	ID                   int64
+	CreatedAt            time.Time
+	StartTime            time.Time
+	Location             string
+	Name                 string
+	MainAmount           int64
+	ReserverAmount       int64
+	RegistartionOpenTime time.Time
 }

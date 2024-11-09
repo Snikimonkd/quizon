@@ -4,38 +4,39 @@ import (
 	"context"
 	"time"
 
-	httpModel "quizon_bot/internal/app/delivery/http/model"
-	"quizon_bot/internal/generated/postgres/public/model"
-	"quizon_bot/internal/utils"
+	httpModel "quizon/internal/app/delivery/http/model"
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/utils"
 )
 
 type RegisterAvailableRepository interface {
-	SelectRegistrationRestrictions(ctx context.Context) (model.Games, error)
-	RegistrationsAmount(ctx context.Context) (int64, error)
+	GetGame(ctx context.Context, gameID int64) (model.Games, error)
+	RegistrationsAmount(ctx context.Context, gameID int64) (int64, error)
 }
 
-func (u usecase) RegisterAvailable(ctx context.Context) (httpModel.RegistrationStatus, error) {
-	restrictionsLimitations, err := u.registerAvailableRepository.SelectRegistrationRestrictions(
+func (u usecase) RegisterAvailable(ctx context.Context, gameID int64) (httpModel.RegistrationStatus, error) {
+	restrictionsLimitations, err := u.repository.GetGame(
 		ctx,
+		gameID,
 	)
 	if err != nil {
 		return httpModel.RegistrationStatus(""), err
 	}
 
-	if !time.Now().In(utils.LocMsk).After(restrictionsLimitations.OpenningTime.In(utils.LocMsk)) {
+	if !time.Now().In(utils.LocMsk).After(restrictionsLimitations.StartTime.In(utils.LocMsk)) {
 		return httpModel.NotOpenedYet, nil
 	}
 
-	regsAMount, err := u.registerAvailableRepository.RegistrationsAmount(ctx)
+	regsAmount, err := u.repository.RegistrationsAmount(ctx, gameID)
 	if err != nil {
 		return httpModel.RegistrationStatus(""), err
 	}
 
-	if regsAMount < restrictionsLimitations.Reserve {
+	if regsAmount < restrictionsLimitations.MainAmount {
 		return httpModel.Available, nil
 	}
 
-	if regsAMount < restrictionsLimitations.Closed {
+	if regsAmount < restrictionsLimitations.MainAmount+restrictionsLimitations.ReserverAmount {
 		return httpModel.Reserve, nil
 	}
 

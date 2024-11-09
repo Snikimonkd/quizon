@@ -1,12 +1,15 @@
-LOCAL_DB_DSN:=$(shell grep -A1 'database' config/config.yaml | tail -n1 | sed "s/.*dsn: //g" | sed "s/\"//g")
-
-LOCAL_BIN := $(CURDIR)/bin
+LOCAL_BIN:=$(CURDIR)/bin
+POSTGRES_PASSWORD:=quizon_db_password
+LOCAL_DB_DSN:=postgres://postgres:$(POSTGRES_PASSWORD)@localhost:5432/postgres?sslmode=disable
 
 run:
-	ENV="local" go run cmd/main.go
+	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) go run cmd/main.go
 
 run-compose:
-	docker compose up build -d
+	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
+
+stop-compose:
+	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
 
 test:
 	go test -race -v -cover -coverprofile=cover.out.tmp -covermode=atomic -coverpkg ./... ./...

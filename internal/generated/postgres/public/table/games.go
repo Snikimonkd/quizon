@@ -17,9 +17,14 @@ type gamesTable struct {
 	postgres.Table
 
 	// Columns
-	Reserve      postgres.ColumnInteger
-	Closed       postgres.ColumnInteger
-	OpenningTime postgres.ColumnTimestampz
+	ID                   postgres.ColumnInteger
+	CreatedAt            postgres.ColumnTimestampz
+	StartTime            postgres.ColumnTimestampz
+	Location             postgres.ColumnString
+	Name                 postgres.ColumnString
+	MainAmount           postgres.ColumnInteger
+	ReserverAmount       postgres.ColumnInteger
+	RegistartionOpenTime postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -60,20 +65,30 @@ func newGamesTable(schemaName, tableName, alias string) *GamesTable {
 
 func newGamesTableImpl(schemaName, tableName, alias string) gamesTable {
 	var (
-		ReserveColumn      = postgres.IntegerColumn("reserve")
-		ClosedColumn       = postgres.IntegerColumn("closed")
-		OpenningTimeColumn = postgres.TimestampzColumn("openning_time")
-		allColumns         = postgres.ColumnList{ReserveColumn, ClosedColumn, OpenningTimeColumn}
-		mutableColumns     = postgres.ColumnList{ReserveColumn, ClosedColumn, OpenningTimeColumn}
+		IDColumn                   = postgres.IntegerColumn("id")
+		CreatedAtColumn            = postgres.TimestampzColumn("created_at")
+		StartTimeColumn            = postgres.TimestampzColumn("start_time")
+		LocationColumn             = postgres.StringColumn("location")
+		NameColumn                 = postgres.StringColumn("name")
+		MainAmountColumn           = postgres.IntegerColumn("main_amount")
+		ReserverAmountColumn       = postgres.IntegerColumn("reserver_amount")
+		RegistartionOpenTimeColumn = postgres.TimestampzColumn("registartion_open_time")
+		allColumns                 = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserverAmountColumn, RegistartionOpenTimeColumn}
+		mutableColumns             = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserverAmountColumn, RegistartionOpenTimeColumn}
 	)
 
 	return gamesTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		Reserve:      ReserveColumn,
-		Closed:       ClosedColumn,
-		OpenningTime: OpenningTimeColumn,
+		ID:                   IDColumn,
+		CreatedAt:            CreatedAtColumn,
+		StartTime:            StartTimeColumn,
+		Location:             LocationColumn,
+		Name:                 NameColumn,
+		MainAmount:           MainAmountColumn,
+		ReserverAmount:       ReserverAmountColumn,
+		RegistartionOpenTime: RegistartionOpenTimeColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

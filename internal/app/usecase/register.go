@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 
-	httpModel "quizon_bot/internal/app/delivery/http/model"
-	"quizon_bot/internal/generated/postgres/public/model"
+	httpModel "quizon/internal/app/delivery/http/model"
+	"quizon/internal/generated/postgres/public/model"
 )
 
 type RegisterRepository interface {
@@ -14,18 +14,18 @@ type RegisterRepository interface {
 func (u usecase) Register(ctx context.Context, req httpModel.Register) error {
 	now := u.clock.Now()
 	domainModel := model.Registrations{
-		TgContact:   req.TgContact,
-		TeamID:      req.TeamID,
+		GameID:      req.GameID,
+		CreatedAt:   now,
 		TeamName:    req.TeamName,
 		CaptainName: req.CaptainName,
 		Phone:       req.Phone,
+		Telegram:    req.TgContact,
+		TeamSize:    req.TeamSize,
 		GroupName:   req.GroupName,
-		Amount:      req.Amount,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		TeamID:      req.TeamID,
 	}
 
-	err := u.registerRepository.Register(ctx, domainModel)
+	err := u.repository.Register(ctx, domainModel)
 	if err != nil {
 		return err
 	}
