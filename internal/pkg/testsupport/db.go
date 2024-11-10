@@ -15,11 +15,13 @@ var (
 	s  sync.Once
 )
 
+const dsn string = `postgres://postgres:some_password@localhost:5432/postgres?sslmode=disable`
+
 // ConnectToTestPostgres - подключиться к базе в тестах
 func ConnectToTestPostgres(ctx context.Context, t *testing.T) *pgxpool.Pool {
 	s.Do(func() {
 		var err error
-		db, err = config.ConnectToPostgres(context.Background())
+		db, err = config.ConnectToPostgresByDSN(context.Background(), dsn)
 		if err != nil {
 			t.Fatalf("can't connect to db: %v", err)
 		}

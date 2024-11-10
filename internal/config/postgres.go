@@ -21,6 +21,10 @@ func ConnectToPostgres(ctx context.Context) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("empty dsn in env variable")
 	}
 
+	return ConnectToPostgresByDSN(ctx, dsn)
+}
+
+func ConnectToPostgresByDSN(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	db, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to db: %w", err)
