@@ -14,6 +14,7 @@ type Usecase interface {
 	RegistrationsUsecase
 	RegisterAvailableUsecase
 	CreateGameUsecase
+	ListGamesUsecase
 	// LoginUsecase
 }
 

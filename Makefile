@@ -9,7 +9,7 @@ run-compose:
 	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
 
 stop-compose:
-	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
+	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml down
 
 test:
 	PG_DSN=$(PG_DSN) go test -race -v -cover -coverprofile=cover.out.tmp -covermode=atomic -coverpkg ./... ./...

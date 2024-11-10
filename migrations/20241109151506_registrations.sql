@@ -13,7 +13,7 @@ CREATE TABLE registrations (
     -- контакт для связи в тг
     telegram text NOT NULL,
     -- размер команды
-    players_amount text NOT NULL,
+    players_amount bigint NOT NULL,
 
     -- название и номер группы
     group_name text,

@@ -18,7 +18,7 @@ type Registrations struct {
 	CaptainName   string
 	Phone         string
 	Telegram      string
-	PlayersAmount string
+	PlayersAmount int64
 	GroupName     *string
 	TeamID        *string
 }

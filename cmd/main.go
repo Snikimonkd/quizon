@@ -31,10 +31,13 @@ func main() {
 	usecase := usecase.NewUsecase(repository)
 	httpDelivery := httpDelivery.NewDelivery(usecase)
 
+	router.Get("/games", httpDelivery.Games)
 	router.Post("/register", httpDelivery.Register)
-	router.Post("/registrations", httpDelivery.Registrations)
 	router.Get("/register-available", httpDelivery.RegisterAvailable)
 	router.Post("/login", httpDelivery.Login)
+
+	router.Post("/create-game", httpDelivery.CreateGame)
+	router.Post("/registrations", httpDelivery.Registrations)
 
 	logger.Infof("starting server on port: %v", port)
 	server := http.Server{

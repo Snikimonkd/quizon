@@ -19,7 +19,7 @@ type Register struct {
 	CaptainName   string  `json:"captain_name"`
 	Phone         string  `json:"phone"`
 	GroupName     *string `json:"group_name"`
-	PlayersAmount string  `json:"players_amount"`
+	PlayersAmount int64   `json:"players_amount"`
 }
 
 type RegisterAvailableRequest struct {
@@ -34,7 +34,7 @@ type Registration struct {
 	CaptainName   string  `json:"captain_name"`
 	Phone         string  `json:"phone"`
 	GroupName     *string `json:"group_name"`
-	PlayersAmount string  `json:"players_amount"`
+	PlayersAmount int64   `json:"players_amount"`
 	RegisteredAt  string  `json:"registered_at"`
 }
 
@@ -58,4 +58,15 @@ const (
 type LoginRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+}
+
+type Game struct {
+	ID                   int64     `json:"id"`
+	CreatedAt            time.Time `json:"created_at"`
+	StartTime            time.Time `json:"start_time"`
+	Location             string    `json:"location"`
+	Name                 string    `json:"name"`
+	MainAmount           int64     `json:"main_amount"`
+	ReserveAmount        int64     `json:"reserve_amount"`
+	RegistartionOpenTime time.Time `json:"registartion_open_time"`
 }
