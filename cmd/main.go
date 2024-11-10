@@ -36,7 +36,7 @@ func main() {
 	router.Post("/login", httpDelivery.Login)
 
 	router.Post("/create-game", httpDelivery.CreateGame)
-	router.Post("/registrations", httpDelivery.Registrations)
+	router.Get("/registrations", httpDelivery.Registrations)
 
 	logger.Infof("starting server on port: %v", port)
 	server := http.Server{

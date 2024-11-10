@@ -19,7 +19,7 @@ func (u usecase) Register(ctx context.Context, req httpModel.Register) error {
 		TeamName:      req.TeamName,
 		CaptainName:   req.CaptainName,
 		Phone:         req.Phone,
-		Telegram:      req.TgContact,
+		Telegram:      req.Telegram,
 		PlayersAmount: req.PlayersAmount,
 		GroupName:     req.GroupName,
 		TeamID:        req.TeamID,

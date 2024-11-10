@@ -144,7 +144,7 @@ func (r repository) ListGames(ctx context.Context) ([]model.Games, error) {
 	stmt := table.Games.SELECT(
 		table.Games.AllColumns,
 	).ORDER_BY(
-		table.Games.StartTime,
+		table.Games.StartTime.DESC(),
 	)
 
 	var res []model.Games

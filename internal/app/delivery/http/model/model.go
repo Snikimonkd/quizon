@@ -13,7 +13,7 @@ type CreateGameRequest struct {
 
 type Register struct {
 	GameID        int64   `json:"game_id"`
-	TgContact     string  `json:"telegram"`
+	Telegram      string  `json:"telegram"`
 	TeamID        *string `json:"team_id,omitempty"`
 	TeamName      string  `json:"team_name"`
 	CaptainName   string  `json:"captain_name"`
@@ -40,10 +40,6 @@ type Registration struct {
 
 type RegisterAvailableResponse struct {
 	Available RegistrationStatus `json:"available"`
-}
-
-type ListRegistrationsRequest struct {
-	GameID int64 `json:"game_id"`
 }
 
 type RegistrationStatus string
