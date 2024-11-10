@@ -14,34 +14,27 @@ paths:
 
 components:
   schemas:
-    ListRegistrationsResponse:
-      type: array
-      properties:
-        items:
-          $ref: '#/components/schemas/Registration'
     Registration:
       type: object
+      required: [number, telegram, team_name, captain_name, phone]
       properties:
-        items:
-          number:
-            type: integer
-            format: int64
-            required: true
-          telegram:
-            type: string
-            required: true
-          team_id:
-            type: string
-            required: false
-          team_name:
-            type: string
-            required: true
-          captain_name:
-            type: string
-            required: true
-          phone:
-            type: string
-            required: true
-          group_name:
-            type: string
-            required: false
+        number:
+          type: integer
+          format: int64
+        telegram:
+          type: string
+        team_id:
+          type: string
+        team_name:
+          type: string
+        captain_name:
+          type: string
+        phone:
+          type: string
+        group_name:
+          type: string
+    ListRegistrationsResponse:
+      type: array
+      items:
+        type: array
+        $ref: '#/components/schemas/Registration'

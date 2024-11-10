@@ -12,7 +12,7 @@ stop-compose:
 	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
 
 test:
-	go test -race -v -cover -coverprofile=cover.out.tmp -covermode=atomic -coverpkg ./... ./...
+	PG_DSN=$(PG_DSN) go test -race -v -cover -coverprofile=cover.out.tmp -covermode=atomic -coverpkg ./... ./...
 
 test-cov:test
 	cat cover.out.tmp | grep -v "mock.go" | grep -v "/testsupport/" | grep -v "/generated/" > cover.out || cp cover.out.tmp cover.out
@@ -28,7 +28,7 @@ bin-deps:
 	GOPROXY="proxy.golang.org" GOBIN=$(LOCAL_BIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 
 gen-api:bin-deps
-	@PATH=$(LOCAL_BIN):$(PATH) GOBIN=$(LOCAL_BIN) oapi-codegen --config=./openapi/config.yaml openapi/api.yaml -o=.internal/app/delivery/http/
+	@PATH=$(LOCAL_BIN):$(PATH) GOBIN=$(LOCAL_BIN) oapi-codegen --config=openapi/config.yaml openapi/api.yaml
 
 lint:
 	golangci-lint run --config=.golangci.yml

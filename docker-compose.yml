@@ -15,8 +15,8 @@ services:
     image: postgres:13
     restart: always
     environment:
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - PGDATA=/data/postgres
     ports:
       - '5432:5432'
     healthcheck:
@@ -26,6 +26,6 @@ services:
       start_period: 30s
       timeout: 10s
     volumes:
-      - pgdata:/data/postgres
+      - pgdata:/var/lib/postgresql/data
 volumes:
   pgdata:

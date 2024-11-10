@@ -54,3 +54,8 @@ const (
 	Closed       RegistrationStatus = "closed"
 	NotOpenedYet RegistrationStatus = "not_opened_yet"
 )
+
+type LoginRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}

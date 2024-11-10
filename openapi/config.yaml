@@ -2,5 +2,6 @@ package: api
 generate:
   chi-server: true
   models: true
-output: gen.go
+  strict-server: true
+output: internal/app/delivery/http/api/server.go
 
