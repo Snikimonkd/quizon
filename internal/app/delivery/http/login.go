@@ -1,18 +1,22 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"net/http"
-	"time"
 
 	httpModel "quizon/internal/app/delivery/http/model"
+	"quizon/internal/app/usecase"
 )
 
-// type LoginUsecase interface {
-// 	Login(ctx context.Context, req httpModel.Login) error
-// }
+const authorizationTokenName string = `authorization-token`
+
+type LoginUsecase interface {
+	Login(ctx context.Context, req httpModel.LoginRequest) (usecase.Cookie, error)
+}
 
 func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
-	_ = r.Context()
+	ctx := r.Context()
 	var req httpModel.LoginRequest
 	err := UnmarshalRequest(r.Body, &req)
 	if err != nil {
@@ -20,26 +24,29 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	err = d.loginUsecase.Login(ctx, req)
-	//	if err != nil {
-	//		logger.Error(err.Error())
-	//		ResponseWithJson(w, http.StatusInternalServerError, Error{Msg: err.Error()})
-	//		return
-	//	}
+	cookie, err := d.usecase.Login(ctx, req)
+	if errors.Is(err, usecase.ErrWrongPassword) {
+		ResponseWithJSON(w, http.StatusBadRequest, Error{Msg: err.Error()})
+		return
+	}
+	if err != nil {
+		ResponseWithJSON(w, http.StatusInternalServerError, Error{Msg: err.Error()})
+		return
+	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:    "authorization",
-		Value:   "0e689e44-9d6a-48c9-aef7-8480086aac11",
-		Path:    "/",
-		Domain:  "localhost:8000",
-		Expires: time.Now().Add(time.Hour * 24),
-
+		Name:   authorizationTokenName,
+		Path:   "/",
+		Domain: "localhost:8000",
 		// https
 		Secure: true,
 		// only visible to browser and not to js
 		HttpOnly: true,
 		// all requests from this domain must add cookie
 		SameSite: http.SameSiteStrictMode,
+
+		Value:   cookie.Value,
+		Expires: cookie.ExpiresAt,
 	})
 
 	ResponseWithJSON(w, http.StatusOK, nil)

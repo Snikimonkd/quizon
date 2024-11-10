@@ -8,26 +8,28 @@ import (
 
 // Repository - интерфейс инкапсулирующий в себе все репозитории
 type Repository interface {
-	//	LoginRepository
 	RegisterRepository
 	RegistrationsRepository
 	RegisterAvailableRepository
 	CreateGameRepository
 	ListGamesRepository
+	LoginRepository
 }
 
 type usecase struct {
 	//	loginRepository             LoginRepository
 	repository Repository
 	clock      clock.Clock
+
+	cookieCache CookieCache
 }
 
 // NewUsecase - конструктор для usecase
-func NewUsecase(repository Repository) usecase {
+func NewUsecase(repository Repository, cookieCache CookieCache) usecase {
 	return usecase{
-		//	loginRepository:             repositories,
-		repository: repository,
-		clock:      clock.New(),
+		repository:  repository,
+		clock:       clock.New(),
+		cookieCache: cookieCache,
 	}
 }
 

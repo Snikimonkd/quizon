@@ -9,6 +9,7 @@ import (
 	"quizon/internal/app/repository"
 	"quizon/internal/app/usecase"
 	"quizon/internal/config"
+	"quizon/internal/pkg/cache"
 	"quizon/internal/pkg/logger"
 )
 
@@ -26,17 +27,22 @@ func main() {
 
 	router := config.NewRouter()
 
+	router.With()
+
+	cookieCache := cache.New[usecase.Cookie]()
 	repository := repository.NewRepository(db)
-	usecase := usecase.NewUsecase(repository)
-	httpDelivery := httpDelivery.NewDelivery(usecase)
+	usecase := usecase.NewUsecase(repository, cookieCache)
+	httpDeliverys := httpDelivery.NewDelivery(usecase)
 
-	router.Get("/games", httpDelivery.Games)
-	router.Post("/register", httpDelivery.Register)
-	router.Get("/register-available", httpDelivery.RegisterAvailable)
-	router.Post("/login", httpDelivery.Login)
+	router.Get("/games", httpDeliverys.Games)
+	router.Post("/register", httpDeliverys.Register)
+	router.Get("/register-available", httpDeliverys.RegisterAvailable)
+	router.Post("/login", httpDeliverys.Login)
 
-	router.Post("/create-game", httpDelivery.CreateGame)
-	router.Get("/registrations", httpDelivery.Registrations)
+	checkCookie := httpDelivery.NewCheckCookieMiddleware(cookieCache)
+	authRouter := router.With(checkCookie.CheckCookie())
+	authRouter.Post("/create-game", httpDeliverys.CreateGame)
+	authRouter.Get("/registrations", httpDeliverys.Registrations)
 
 	logger.Infof("starting server on port: %v", port)
 	server := http.Server{

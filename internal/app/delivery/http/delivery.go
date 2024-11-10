@@ -15,7 +15,7 @@ type Usecase interface {
 	RegisterAvailableUsecase
 	CreateGameUsecase
 	ListGamesUsecase
-	// LoginUsecase
+	LoginUsecase
 }
 
 type delivery struct {

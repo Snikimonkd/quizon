@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-jet/jet/v2/postgres"
@@ -13,6 +14,8 @@ import (
 	"quizon/internal/generated/postgres/public/table"
 )
 
+var ErrNotFound error = errors.New("not found")
+
 type repository struct {
 	db *pgxpool.Pool
 }
@@ -21,6 +24,56 @@ func NewRepository(db *pgxpool.Pool) repository {
 	return repository{
 		db: db,
 	}
+}
+
+// func (r repository) rollbackUnlessCommited(ctx context.Context, tx pgx.Tx) {
+// 	err := tx.Rollback(ctx)
+// 	if errors.Is(err, pgx.ErrTxClosed) {
+// 		return
+// 	}
+// 	if err != nil {
+// 		logger.Errorf("can't rollback tx in defer: %v", err)
+// 	}
+// }
+//
+// func (r repository) Transactional(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
+// 	tx, err := r.db.Begin(ctx)
+// 	if err != nil {
+// 		return fmt.Errorf("can't begin tx: %w", err)
+// 	}
+// 	defer r.rollbackUnlessCommited(ctx, tx)
+//
+// 	err = fn(ctx, tx)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	err = tx.Commit(ctx)
+// 	if err != nil {
+// 		return fmt.Errorf("can't commit tx: %w", err)
+// 	}
+//
+// 	return nil
+// }
+
+func (r repository) GetPassword(ctx context.Context, login string) (string, error) {
+	stmt := table.Admins.SELECT(
+		table.Admins.Password,
+	).WHERE(
+		table.Admins.Login.EQ(postgres.String(login)),
+	)
+
+	var password string
+	query, args := stmt.Sql()
+	err := r.db.QueryRow(ctx, query, args...).Scan(&password)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("can't get password: %w", err)
+	}
+
+	return password, nil
 }
 
 func (r repository) RegistrationsAmount(ctx context.Context, gameID int64) (int64, error) {
