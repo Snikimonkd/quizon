@@ -28,13 +28,17 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 	//	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "authorization",
-		Value:    "0e689e44-9d6a-48c9-aef7-8480086aac11",
-		Path:     "/",
-		Domain:   "localhost:8000",
-		Expires:  time.Now().Add(time.Hour * 24),
-		Secure:   true,
+		Name:    "authorization",
+		Value:   "0e689e44-9d6a-48c9-aef7-8480086aac11",
+		Path:    "/",
+		Domain:  "localhost:8000",
+		Expires: time.Now().Add(time.Hour * 24),
+
+		// https
+		Secure: true,
+		// only visible to browser and not to js
 		HttpOnly: true,
+		// all requests from this domain must add cookie
 		SameSite: http.SameSiteStrictMode,
 	})
 

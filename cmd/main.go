@@ -34,7 +34,7 @@ func main() {
 	router.Post("/register", httpDelivery.Register)
 	router.Post("/registrations", httpDelivery.Registrations)
 	router.Get("/register-available", httpDelivery.RegisterAvailable)
-	//	router.Post("/login", httpDelivery.Login)
+	router.Post("/login", httpDelivery.Login)
 
 	logger.Infof("starting server on port: %v", port)
 	server := http.Server{
