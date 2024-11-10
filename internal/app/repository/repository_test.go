@@ -7,7 +7,6 @@ import (
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -37,7 +36,7 @@ func Test_repository_GetPassword(t *testing.T) {
 			},
 			args: args{
 				ctx:   context.Background(),
-				login: "123",
+				login: uuid.NewString(),
 			},
 			want: func(ctx context.Context, t *testing.T, db *pgxpool.Pool, login string) string {
 				pass := uuid.NewString()
@@ -49,7 +48,7 @@ func Test_repository_GetPassword(t *testing.T) {
 					Login:    login,
 					Password: string(hashPass),
 				})
-				return string(hashPass)
+				return pass
 			},
 			wantErr: false,
 		},
@@ -72,8 +71,9 @@ func Test_repository_GetPassword(t *testing.T) {
 				t.Errorf("repository.GetPassword() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !cmp.Equal(got, want) {
-				t.Errorf("repository.GetPassword(), diff: %v", cmp.Diff(got, want))
+			err = bcrypt.CompareHashAndPassword([]byte(got), []byte(want))
+			if err != nil {
+				t.Errorf("want != got, want = %v, got = %v, err = %v", want, got, err)
 			}
 		})
 	}
