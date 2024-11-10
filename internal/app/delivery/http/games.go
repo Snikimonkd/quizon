@@ -5,11 +5,10 @@ import (
 	"net/http"
 
 	httpModel "quizon/internal/app/delivery/http/model"
-	"quizon/internal/generated/postgres/public/model"
 )
 
 type ListGamesUsecase interface {
-	ListGames(ctx context.Context) ([]model.Games, error)
+	ListGames(ctx context.Context) ([]httpModel.Game, error)
 }
 
 func (d *delivery) Games(w http.ResponseWriter, r *http.Request) {
@@ -20,19 +19,5 @@ func (d *delivery) Games(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ret := make([]httpModel.Game, 0, len(games))
-	for _, v := range games {
-		ret = append(ret, httpModel.Game{
-			ID:                   v.ID,
-			CreatedAt:            v.CreatedAt,
-			StartTime:            v.StartTime,
-			Location:             v.Location,
-			Name:                 v.Name,
-			MainAmount:           v.MainAmount,
-			ReserveAmount:        v.ReserveAmount,
-			RegistartionOpenTime: v.RegistartionOpenTime,
-		})
-	}
-
-	ResponseWithJSON(w, http.StatusOK, ret)
+	ResponseWithJSON(w, http.StatusOK, games)
 }

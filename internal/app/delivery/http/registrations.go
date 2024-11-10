@@ -22,11 +22,6 @@ func (d *delivery) Registrations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	if req.Password != "09154cb6-f723-4f3d-943c-7a6e4b155eb1" {
-	//		ResponseWithJSON(w, http.StatusUnauthorized, Error{Msg: "ti po moemu chto-to pereputal"})
-	//		return
-	//	}
-
 	res, err := d.usecase.Registrations(ctx, gameID)
 	if err != nil {
 		ResponseWithJSON(w, http.StatusInternalServerError, Error{Msg: err.Error()})

@@ -28,7 +28,7 @@ type RegisterAvailableRequest struct {
 
 type Registration struct {
 	Number        int64   `json:"number"`
-	Telegram      string  `json:"tg_contact"`
+	Telegram      string  `json:"telegram"`
 	TeamID        *string `json:"team_id,omitempty"`
 	TeamName      string  `json:"team_name"`
 	CaptainName   string  `json:"captain_name"`
