@@ -43,7 +43,7 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 		// only visible to browser and not to js
 		HttpOnly: true,
 		// send from any domain to backend
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 
 		Value:   cookie.Value,
 		Expires: cookie.ExpiresAt,
