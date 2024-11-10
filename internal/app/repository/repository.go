@@ -185,7 +185,7 @@ func (r repository) CreateGame(ctx context.Context, game model.Games) error {
 		game,
 	)
 	query, args := stmt.Sql()
-	_, err := r.db.Exec(ctx, query, args)
+	_, err := r.db.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("can't insert into games: %w", err)
 	}

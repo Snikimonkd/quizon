@@ -2,10 +2,19 @@ package http
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	httpModel "quizon/internal/app/delivery/http/model"
 )
+
+func kek() {
+	t := time.Now()
+	b, _ := json.Marshal(t)
+	fmt.Println(string(b))
+}
 
 type CreateGameUsecase interface {
 	CreateGame(ctx context.Context, req httpModel.CreateGameRequest) error
