@@ -46,7 +46,7 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 		// only visible to browser and not to js
 		HttpOnly: true,
 		// send from any domain to backend
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	ResponseWithJSON(w, http.StatusOK, nil)

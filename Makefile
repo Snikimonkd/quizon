@@ -6,7 +6,7 @@ run:
 	PG_DSN=$(PG_DSN) go run cmd/main.go
 
 run-compose:
-	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --no-deps --build --wait
+	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml up -d --build --wait
 
 stop-compose:
 	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) docker-compose -f ./docker-compose.yml down
