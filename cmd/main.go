@@ -35,8 +35,8 @@ func main() {
 	httpDeliverys := httpDelivery.NewDelivery(usecase)
 
 	router.Get("/games", httpDeliverys.Games)
-	router.Post("/register", httpDeliverys.Register)
 	router.Get("/register-available", httpDeliverys.RegisterAvailable)
+	router.Post("/register", httpDeliverys.Register)
 	router.Post("/login", httpDeliverys.Login)
 
 	checkCookie := httpDelivery.NewCheckCookieMiddleware(cookieCache)

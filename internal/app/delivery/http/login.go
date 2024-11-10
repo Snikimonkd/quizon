@@ -35,15 +35,15 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:   authorizationTokenName,
-		Path:   "/",
-		Domain: "localhost:8000",
+		Name: authorizationTokenName,
+		Path: "/",
+		// Domain: "localhost:8000",
 		// https
-		Secure: true,
+		Secure: false,
 		// only visible to browser and not to js
 		HttpOnly: true,
-		// all requests from this domain must add cookie
-		SameSite: http.SameSiteStrictMode,
+		// send from any domain to backend
+		SameSite: http.SameSiteNoneMode,
 
 		Value:   cookie.Value,
 		Expires: cookie.ExpiresAt,
