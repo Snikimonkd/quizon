@@ -1,11 +1,11 @@
-package http
+package delivery
 
 import (
 	"context"
 	"net/http"
 	"strconv"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 )
 
 type RegistrationsUsecase interface {

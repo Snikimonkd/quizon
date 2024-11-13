@@ -1,10 +1,10 @@
-package http
+package delivery
 
 import (
 	"context"
 	"net/http"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 	"quizon/internal/pkg/logger"
 )
 

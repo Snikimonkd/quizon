@@ -1,11 +1,11 @@
-package http
+package delivery
 
 import (
 	"context"
 	"errors"
 	"net/http"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 	"quizon/internal/app/usecase"
 )
 
@@ -39,8 +39,8 @@ func (d *delivery) Login(w http.ResponseWriter, r *http.Request) {
 		Value:   cookie.Value,
 		Expires: cookie.ExpiresAt,
 
-		Path: "/",
-		// Domain: "localhost:8000",
+		Path:   "/",
+		Domain: "localhost:8000",
 		// https
 		Secure: true,
 		// only visible to browser and not to js

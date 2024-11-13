@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/utils"
 )

@@ -56,6 +56,42 @@ func NewRepository(db *pgxpool.Pool) repository {
 // 	return nil
 // }
 
+func (r repository) GetRegistrationsAmount(ctx context.Context, gamesIDs []int64) (map[int64]int64, error) {
+	stmt := table.Registrations.SELECT(
+		table.Registrations.GameID,
+		postgres.COUNT(postgres.STAR),
+	).WHERE(
+		table.Registrations.GameID.IN(lo.Map(gamesIDs, func(t int64, _ int) postgres.Expression { return postgres.Int64(t) })...),
+	).
+		GROUP_BY(table.Registrations.GameID)
+
+	res := make(map[int64]int64, len(gamesIDs))
+	query, args := stmt.Sql()
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("can't get registrations for games")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var count int64
+		cerr := rows.Scan(
+			&id,
+			&count,
+		)
+		if cerr != nil {
+			return nil, fmt.Errorf("can't scan registrations: %w", cerr)
+		}
+		res[id] = count
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error while scanning: %w", err)
+	}
+
+	return res, nil
+}
+
 func (r repository) GetPassword(ctx context.Context, login string) (string, error) {
 	stmt := table.Admins.SELECT(
 		table.Admins.Password,
@@ -176,21 +212,6 @@ func (r repository) Register(ctx context.Context, in model.Registrations) error 
 	}
 
 	return nil
-}
-
-func (r repository) CheckTeamsAmount(ctx context.Context, tx pgx.Tx) (int64, error) {
-	stmt := table.Registrations.SELECT(
-		postgres.COUNT(postgres.STAR),
-	)
-
-	query, args := stmt.Sql()
-	var res *int64
-	err := tx.QueryRow(ctx, query, args...).Scan(&res)
-	if err != nil {
-		return 0, fmt.Errorf("can't select max teams amount: %w", err)
-	}
-
-	return lo.FromPtr(res), nil
 }
 
 func (r repository) ListGames(ctx context.Context) ([]model.Games, error) {

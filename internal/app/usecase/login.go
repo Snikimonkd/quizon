@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 	"quizon/internal/app/repository"
 )
 

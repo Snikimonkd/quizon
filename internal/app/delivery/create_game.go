@@ -1,26 +1,26 @@
-package http
+package delivery
 
 import (
 	"context"
 	"net/http"
 
-	httpModel "quizon/internal/app/delivery/http/model"
+	httpModel "quizon/internal/app/delivery/model"
 )
 
-type RegisterUsecase interface {
-	Register(ctx context.Context, req httpModel.Register) error
+type CreateGameUsecase interface {
+	CreateGame(ctx context.Context, req httpModel.CreateGameRequest) error
 }
 
-func (d *delivery) Register(w http.ResponseWriter, r *http.Request) {
+func (d *delivery) CreateGame(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var req httpModel.Register
+	var req httpModel.CreateGameRequest
 	err := UnmarshalRequest(r.Body, &req)
 	if err != nil {
 		ResponseWithJSON(w, http.StatusBadRequest, Error{Msg: err.Error()})
 		return
 	}
 
-	err = d.usecase.Register(ctx, req)
+	err = d.usecase.CreateGame(ctx, req)
 	if err != nil {
 		ResponseWithJSON(w, http.StatusInternalServerError, Error{Msg: err.Error()})
 		return
