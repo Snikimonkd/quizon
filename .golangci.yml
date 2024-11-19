@@ -1,0 +1,61 @@
+run:
+  concurrency: 8
+  timeout: 10s
+  issues-exit-code: 1
+  tests: true
+
+output:
+  formats: colored-line-number
+
+linters:
+  enable-all: true
+  disable:
+    - gochecknoinits
+    - godot
+    - containedctx
+    - depguard
+    - err113
+    - exhaustruct
+    - gochecknoglobals
+    - gomnd
+    - ireturn
+    - nlreturn
+    - testpackage
+    - dupl
+    - funlen
+    - gci
+    - mnd
+    - nilerr
+    - stylecheck
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - nolintlint
+    - perfsprint
+    - exportloopref
+    - execinquery
+    - gofumpt
+
+linters-settings:
+  revive:
+    rules:
+      - name: var-naming
+        arguments:
+          - ["ID"]
+
+issues:
+  exclude:
+    - exported func .* returns unexported type .*, which can be annoying to use
+    - should omit type .* from declaration of var .*; it will be inferred from the right-hand side
+
+    #    # _ instead of err checks
+    #    - G104
+    #    # for "public interface + private struct implementation" cases only!
+    #    # can be removed in the development phase
+    #    # - (comment on exported (method|function|type|const)|should have( a package)? comment|comment should be of the form)
+    #    # not for the active development - can be removed in the stable phase
+    #    - should have a package comment, unless it's in another file for this package
+    #    - don't use an underscore in package name
+    #    # EXC0001 errcheck: Almost all programs ignore errors on these functions and in most cases it's ok
+    #    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+    #    - should check returned error before deferring
