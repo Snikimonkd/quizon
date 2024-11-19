@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"quizon/internal/app/delivery/api"
 	"quizon/internal/generated/postgres/public/model"
@@ -9,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+var ErrNotOpenedYet error = errors.New("registration is not openned yet")
+
 type RegisterRepository interface {
 	Transactional(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 	LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error
-	GetRegistrationsAmount(ctx context.Context, tx pgx.Tx, gameID int64) (int64, int64, int64, error)
+	GetRegistrationsAmount(ctx context.Context, tx pgx.Tx, gameID int64) (int64, int64, time.Time, int64, error)
 	CreateRegistration(ctx context.Context, tx pgx.Tx, in model.Registrations) error
 }
 
@@ -41,9 +45,17 @@ func (u usecase) CreateRegistration(
 			return txErr
 		}
 
-		amount, reserve, cnt, txErr := u.repository.GetRegistrationsAmount(ctx, tx, req.Body.GameId)
+		amount, reserve, registrationOpenTime, cnt, txErr := u.repository.GetRegistrationsAmount(
+			ctx,
+			tx,
+			req.Body.GameId,
+		)
 		if txErr != nil {
 			return txErr
+		}
+
+		if time.Now().Before(registrationOpenTime) {
+			return ErrNotOpenedYet
 		}
 
 		if amount+reserve <= cnt {
@@ -65,6 +77,11 @@ func (u usecase) CreateRegistration(
 
 		return nil
 	})
+	if errors.Is(err, ErrNotOpenedYet) {
+		return api.PostRegistration400JSONResponse{
+			Error: err.Error(),
+		}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

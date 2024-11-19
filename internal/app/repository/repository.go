@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/generated/postgres/public/table"
@@ -173,9 +174,13 @@ func (r repository) LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error
 	return nil
 }
 
-func (r repository) GetRegistrationsAmount(ctx context.Context, tx pgx.Tx, gameID int64) (int64, int64, int64, error) {
+func (r repository) GetRegistrationsAmount(
+	ctx context.Context,
+	tx pgx.Tx,
+	gameID int64,
+) (int64, int64, time.Time, int64, error) {
 	query := `
-    SELECT g.main_amount, g.reserve_amount, r.cnt
+    SELECT g.main_amount, g.reserve_amount, g.registration_open_time, r.cnt
     FROM games g JOIN (
         SELECT $1::bigint AS game_id, COALESCE(COUNT(1), 0) AS cnt
         FROM registrations
@@ -183,13 +188,14 @@ func (r repository) GetRegistrationsAmount(ctx context.Context, tx pgx.Tx, gameI
     ) r
     ON g.id = r.game_id;
     `
+	var registrationOpenTime time.Time
 	var amount, reserve, cnt int64
-	err := tx.QueryRow(ctx, query, gameID).Scan(&amount, &reserve, &cnt)
+	err := tx.QueryRow(ctx, query, gameID).Scan(&amount, &reserve, &registrationOpenTime, &cnt)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("can't check game registrations: %w", err)
+		return 0, 0, time.Time{}, 0, fmt.Errorf("can't check game registrations: %w", err)
 	}
 
-	return amount, reserve, cnt, nil
+	return amount, reserve, registrationOpenTime, cnt, nil
 }
 
 func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.Registrations) error {

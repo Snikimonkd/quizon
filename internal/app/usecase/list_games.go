@@ -20,10 +20,10 @@ func (u usecase) ListGames(ctx context.Context, page int64, perPage int64) (api.
 	ret := make([]api.ListGamesItem, 0, len(games))
 	for _, v := range games {
 		var status api.RegistrationStatus
-		if v.MainAmount+v.ReserveAmount <= v.RegistrationsAmount {
+		if v.RegistrationsAmount >= v.MainAmount+v.ReserveAmount {
 			status = api.Closed
 		}
-		if v.MainAmount <= v.RegistrationsAmount && v.RegistrationsAmount <= v.MainAmount+v.ReserveAmount {
+		if v.RegistrationsAmount > v.MainAmount && v.RegistrationsAmount < v.MainAmount+v.ReserveAmount {
 			status = api.Reserve
 		}
 		if v.RegistrationsAmount < v.MainAmount {
