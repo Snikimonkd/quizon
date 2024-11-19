@@ -23,7 +23,7 @@ func (u usecase) ListGames(ctx context.Context, page int64, perPage int64) (api.
 		if v.RegistrationsAmount >= v.MainAmount+v.ReserveAmount {
 			status = api.Closed
 		}
-		if v.RegistrationsAmount > v.MainAmount && v.RegistrationsAmount < v.MainAmount+v.ReserveAmount {
+		if v.RegistrationsAmount >= v.MainAmount && v.RegistrationsAmount < v.MainAmount+v.ReserveAmount {
 			status = api.Reserve
 		}
 		if v.RegistrationsAmount < v.MainAmount {
