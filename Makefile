@@ -10,10 +10,12 @@ run:
 	PG_DSN=$(PG_DSN) DOMAIN=$(DOMAIN) go run cmd/main.go
 
 run-compose:
+	docker-compose pull
 	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) DOMAIN=$(DOMAIN) docker-compose -f ./docker-compose.yml up -d --build --wait
 
-stop-compose:
-	POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) DOMAIN=$(DOMAIN) docker-compose -f ./docker-compose.yml down
+run-prod:
+	docker compose pull
+	POSTGRES_PASSWORD=$(PROD_POSTGRES_PASSWORD) DOMAIN=quiz-on.ru docker compose -f ./docker-compose.yml up -d --build --wait
 
 test:
 	PG_DSN=$(PG_DSN) DOMAIN=$(DOMAIN) go test -race -v -cover -coverprofile=cover.out.tmp -covermode=atomic -coverpkg ./... ./...

@@ -34,7 +34,10 @@ func main() {
 	strictServer := delivery.New(usecase)
 	authMiddleware := delivery.NewCheckCookieMiddleware(cookieCache)
 
-	strictHandler := api.NewStrictHandler(&strictServer, []api.StrictMiddlewareFunc{authMiddleware.CheckCookie})
+	strictHandler := api.NewStrictHandler(
+		&strictServer,
+		[]api.StrictMiddlewareFunc{delivery.LogErrors, authMiddleware.CheckCookie},
+	)
 
 	server := config.NewServer(strictHandler, swaggerui.SwaggerContent, openapi.OpenapiContent)
 
