@@ -1,0 +1,13 @@
+/bin
+/vendor
+/vendor.pb
+/vendor.protogen
+.DS_STORE
+.DS_Store
+/.idea
+/.vscode
+pgdata
+
+*.out.tmp
+*.out
+cover.html
