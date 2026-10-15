@@ -1,28 +1,21 @@
 name: migrate
 
 on:
-  workflow_run:
-    workflows: [ "build" ]
-    types: [ completed ]
-    branches: [ "main" ]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency: production
-
 jobs:
   migrate:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    concurrency: production
     env:
       SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
       GOOSE_VERSION: v3.29.0
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: set up Go
         uses: actions/setup-go@v7
