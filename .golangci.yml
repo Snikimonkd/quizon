@@ -15,6 +15,7 @@ linters:
     - funlen
     - gochecknoglobals
     - gochecknoinits
+    - godoclint
     - godot
     - ireturn
     - mnd
@@ -23,6 +24,7 @@ linters:
     - nolintlint
     - perfsprint
     - testpackage
+    - unqueryvet
     - varnamelen
     - wrapcheck
     - wsl

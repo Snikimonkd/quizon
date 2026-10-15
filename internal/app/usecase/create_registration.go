@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"quizon/internal/app/delivery/api"
 	"quizon/internal/generated/postgres/public/model"
-
-	"github.com/jackc/pgx/v5"
 )
 
 var ErrNotOpenedYet error = errors.New("registration is not openned yet")
@@ -63,11 +63,9 @@ func (u usecase) CreateRegistration(
 			return nil
 		}
 
-		if cnt >= amount && cnt <= amount+reserve {
+		status = api.Ok
+		if cnt >= amount {
 			status = api.Reserve
-		}
-		if cnt < amount {
-			status = api.Ok
 		}
 
 		txErr = u.repository.CreateRegistration(ctx, tx, dbModel)

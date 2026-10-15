@@ -15,6 +15,7 @@ var (
 	s  sync.Once
 )
 
+//nolint:gosec // local test database credentials
 const dsn string = `postgres://postgres:some_password@localhost:5432/postgres?sslmode=disable`
 
 // ConnectToTestPostgres - подключиться к базе в тестах

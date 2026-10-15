@@ -61,7 +61,7 @@ func (cm checkCookieMiddleware) CheckCookie(
 	f strictnethttp.StrictHTTPHandlerFunc,
 	operationID string,
 ) strictnethttp.StrictHTTPHandlerFunc {
-	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
 		if !lo.Contains([]string{"GetGamesIdRegistrations", "PostGame", "GetAuth"}, operationID) {
 			return f(ctx, w, r, request)
 		}

@@ -2,7 +2,7 @@ name: deploy
 
 on:
   workflow_run:
-    workflows: [ "build" ]
+    workflows: [ "migrate" ]
     types: [ completed ]
     branches: [ "main" ]
   workflow_dispatch:
@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
-      ENV_FILE: ${{ vars.ENV_FILE }}
       IMAGE: snikimonk/quizon:${{ inputs.tag || format('sha-{0}', github.event.workflow_run.head_sha) }}
     steps:
       - name: set up ssh
@@ -34,11 +33,14 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
 
       - name: deploy
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+          DOMAIN: ${{ vars.DOMAIN }}
         run: |
-          ssh "$SSH_TARGET" bash -s -- "$IMAGE" "$ENV_FILE" <<'SCRIPT'
+          {
+            printf 'export IMAGE=%q PG_DSN=%q DOMAIN=%q\n' "$IMAGE" "$PG_DSN" "$DOMAIN"
+            cat <<'SCRIPT'
           set -euo pipefail
-          IMAGE="$1"
-          ENV_FILE="$2"
 
           docker pull "$IMAGE"
           docker rm -f quizon 2>/dev/null || true
@@ -46,7 +48,9 @@ jobs:
             --name quizon \
             --restart unless-stopped \
             --network host \
-            --env-file "$ENV_FILE" \
+            -e PG_DSN \
+            -e DOMAIN \
             "$IMAGE"
           docker image prune -f
           SCRIPT
+          } | ssh "$SSH_TARGET" bash -s

@@ -24,7 +24,7 @@ func (l loginResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
 	return nil
 }
 
-func (d *delivery) PostLogin(
+func (d delivery) PostLogin(
 	ctx context.Context,
 	req api.PostLoginRequestObject,
 ) (api.PostLoginResponseObject, error) {

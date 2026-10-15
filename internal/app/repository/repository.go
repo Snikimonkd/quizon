@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"quizon/internal/generated/postgres/public/model"
-	"quizon/internal/generated/postgres/public/table"
-	"quizon/internal/pkg/logger"
-
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/lo"
+
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/generated/postgres/public/table"
+	"quizon/internal/pkg/logger"
 )
 
 var ErrNotFound error = errors.New("not found")
@@ -25,16 +25,6 @@ type repository struct {
 func NewRepository(db *pgxpool.Pool) repository {
 	return repository{
 		db: db,
-	}
-}
-
-func (r repository) rollbackUnlessCommited(ctx context.Context, tx pgx.Tx) {
-	err := tx.Rollback(ctx)
-	if errors.Is(err, pgx.ErrTxClosed) {
-		return
-	}
-	if err != nil {
-		logger.Errorf("can't rollback tx in defer: %v", err)
 	}
 }
 
@@ -217,6 +207,7 @@ func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.
 
 type GameWithRegistrations struct {
 	model.Games
+
 	RegistrationsAmount int64
 }
 
@@ -281,4 +272,14 @@ func (r repository) CreateGame(ctx context.Context, game model.Games) (int64, er
 	}
 
 	return res, nil
+}
+
+func (r repository) rollbackUnlessCommited(ctx context.Context, tx pgx.Tx) {
+	err := tx.Rollback(ctx)
+	if errors.Is(err, pgx.ErrTxClosed) {
+		return
+	}
+	if err != nil {
+		logger.Errorf("can't rollback tx in defer: %v", err)
+	}
 }
