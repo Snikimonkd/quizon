@@ -1,0 +1,48 @@
+name: migrate
+
+on:
+  workflow_run:
+    workflows: [ "build" ]
+    types: [ completed ]
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: production
+
+jobs:
+  migrate:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
+      GOOSE_VERSION: v3.29.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@$GOOSE_VERSION
+
+      - name: set up ssh
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: open tunnel to postgres
+        run: ssh -f -N -o ExitOnForwardFailure=yes -L 5432:localhost:5432 "$SSH_TARGET"
+
+      - name: run migrations
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+        run: goose -dir migrations postgres "$PG_DSN" up
