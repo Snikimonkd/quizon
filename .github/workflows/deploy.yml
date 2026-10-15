@@ -1,0 +1,52 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ "build" ]
+    types: [ completed ]
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'image tag (e.g. latest, 1.2.3, sha-<commit>)'
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+
+concurrency: production
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
+      ENV_FILE: ${{ vars.ENV_FILE }}
+      IMAGE: snikimonk/quizon:${{ inputs.tag || format('sha-{0}', github.event.workflow_run.head_sha) }}
+    steps:
+      - name: set up ssh
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: deploy
+        run: |
+          ssh "$SSH_TARGET" bash -s -- "$IMAGE" "$ENV_FILE" <<'SCRIPT'
+          set -euo pipefail
+          IMAGE="$1"
+          ENV_FILE="$2"
+
+          docker pull "$IMAGE"
+          docker rm -f quizon 2>/dev/null || true
+          docker run -d \
+            --name quizon \
+            --restart unless-stopped \
+            --network host \
+            --env-file "$ENV_FILE" \
+            "$IMAGE"
+          docker image prune -f
+          SCRIPT

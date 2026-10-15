@@ -1,6 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE registrations (
+    id bigserial NOT NULL,
     game_id bigint NOT NULL REFERENCES games(id),
     created_at timestamptz NOT NULL,
 
@@ -21,6 +22,7 @@ CREATE TABLE registrations (
     team_id text
 );
 
+CREATE UNIQUE INDEX registrations_id ON registrations (id);
 CREATE INDEX registrations_game_id ON registrations (game_id);
 CREATE INDEX registrations_created_at ON registrations (created_at);
 -- +goose StatementEnd

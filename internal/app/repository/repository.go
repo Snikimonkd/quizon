@@ -157,8 +157,9 @@ func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]mode
 		}
 		res = append(res, buf)
 	}
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("error while scanning: %w", err)
+	rErr := rows.Err()
+	if rErr != nil {
+		return nil, fmt.Errorf("error while scanning: %w", rErr)
 	}
 
 	return res, nil

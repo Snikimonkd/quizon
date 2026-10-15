@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+.idea
+.vscode
+bin
+pgdata
+*.out
+*.out.tmp
+cover.html
+Dockerfile
+docker-compose.yml

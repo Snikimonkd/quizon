@@ -1,6 +1,6 @@
 module quizon
 
-go 1.22
+go 1.27
 
 require (
 	github.com/benbjohnson/clock v1.3.5
