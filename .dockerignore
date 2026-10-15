@@ -9,4 +9,3 @@ pgdata
 *.out.tmp
 cover.html
 Dockerfile
-docker-compose.yml
