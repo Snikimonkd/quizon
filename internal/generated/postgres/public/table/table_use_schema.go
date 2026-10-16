@@ -11,7 +11,6 @@ package table
 // this method only once at the beginning of the program.
 func UseSchema(schema string) {
 	Admins = Admins.FromSchema(schema)
-	Cookies = Cookies.FromSchema(schema)
 	Games = Games.FromSchema(schema)
 	GooseDbVersion = GooseDbVersion.FromSchema(schema)
 	Registrations = Registrations.FromSchema(schema)

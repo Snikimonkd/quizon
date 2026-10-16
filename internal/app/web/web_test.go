@@ -27,6 +27,7 @@ const (
 	registerPath string = "/games/7/register"
 	loginPath    string = "/login"
 	newGamePath  string = "/admin/games/new"
+	teamsPath    string = "/admin/games/7/teams"
 	adminLogin   string = "admin"
 )
 
@@ -44,6 +45,7 @@ type fakeUsecase struct {
 
 	gotRegistration *model.Registrations
 	gotGame         *model.Games
+	gotDeleted      []int64
 }
 
 func (f *fakeUsecase) ListGames(context.Context, int64, int64) ([]usecase.GameListItem, error) {
@@ -78,7 +80,28 @@ func (f *fakeUsecase) CreateGame(_ context.Context, in model.Games) (int64, erro
 }
 
 func (f *fakeUsecase) ListRegistrations(context.Context, int64) ([]usecase.Registration, error) {
-	return f.teams, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]usecase.Registration(nil), f.teams...), nil
+}
+
+func (f *fakeUsecase) DeleteRegistration(_ context.Context, gameID int64, registrationID int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if gameID != f.game.ID {
+		return usecase.ErrNotFound
+	}
+	for i, team := range f.teams {
+		if team.ID == registrationID {
+			f.teams = append(f.teams[:i], f.teams[i+1:]...)
+			f.gotDeleted = append(f.gotDeleted, registrationID)
+			return nil
+		}
+	}
+
+	return usecase.ErrNotFound
 }
 
 func (f *fakeUsecase) Login(context.Context, string, string) (*http.Cookie, error) {
@@ -451,7 +474,7 @@ func TestAdminRequiresLogin(t *testing.T) {
 
 	h := newTestRouter(t, &fakeUsecase{game: testGame()})
 
-	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams"})
+	rec := do(t, h, request{method: http.MethodGet, path: teamsPath})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
 		t.Errorf("guest: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -465,7 +488,12 @@ func TestAdminRequiresLogin(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("admin: status = %d", rec.Code)
 	}
-	assertContains(t, rec.Body.String(), `value="Бауманская лига"`, `type="datetime-local"`)
+	assertContains(t, rec.Body.String(),
+		`value="Бауманская лига"`,
+		`type="datetime-local"`,
+		`name="main_amount" type="number" value="20"`,
+		`name="reserve_amount" type="number" value="10"`,
+	)
 }
 
 func loginForm(password string) url.Values {
@@ -561,12 +589,11 @@ func TestCreateGame(t *testing.T) {
 	})
 }
 
-func teamsRouter(t *testing.T) http.Handler {
-	t.Helper()
-
+func teamsUsecase() *fakeUsecase {
 	team := func(number int64, name string) usecase.Registration {
 		return usecase.Registration{
 			Number:        number,
+			ID:            number * 10,
 			GameID:        7,
 			TeamName:      name,
 			Telegram:      "@team",
@@ -577,13 +604,19 @@ func teamsRouter(t *testing.T) http.Handler {
 	}
 	teams := []usecase.Registration{team(1, "Первые"), team(2, "Вторые"), team(3, "Третьи")}
 
-	return newTestRouter(t, &fakeUsecase{game: testGame(), teams: teams})
+	return &fakeUsecase{game: testGame(), teams: teams}
+}
+
+func teamsRouter(t *testing.T) http.Handler {
+	t.Helper()
+
+	return newTestRouter(t, teamsUsecase())
 }
 
 func TestTeamsPage(t *testing.T) {
 	t.Parallel()
 
-	rec := do(t, teamsRouter(t), request{method: http.MethodGet, path: "/admin/games/7/teams", admin: true})
+	rec := do(t, teamsRouter(t), request{method: http.MethodGet, path: teamsPath, admin: true})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -598,6 +631,11 @@ func TestTeamsPage(t *testing.T) {
 		`<span class="visually-hidden">Дальше резерв. </span>3</td>`,
 	)
 	assertNotContains(t, body, "Состав")
+	assertContains(t, body,
+		`hx-post="/admin/games/7/teams/20/delete"`,
+		`hx-confirm="Удалить команду «Вторые» из игры?"`,
+		`aria-label="Удалить команду «Вторые»"`,
+	)
 	if strings.Count(body, "is-reserve") != 1 {
 		t.Error("only the third team must be in reserve")
 	}
@@ -715,5 +753,69 @@ func TestHashAssetsChangesWithContent(t *testing.T) {
 	_, err = before.url("missing.css")
 	if err == nil {
 		t.Error("unknown asset must be an error")
+	}
+}
+
+const deleteTeamPath = "/admin/games/7/teams/20/delete"
+
+func TestDeleteTeam(t *testing.T) {
+	t.Parallel()
+
+	uc := teamsUsecase()
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	// htmx получает только содержимое #teams с обновлённым списком
+	assertContains(t, body, "Команд: 2", "Первые", "Третьи")
+	assertNotContains(t, body, "<!doctype html>", "<h1>", "Вторые")
+	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
+		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
+	}
+}
+
+func TestDeleteTeamNoJS(t *testing.T) {
+	t.Parallel()
+
+	rec := do(t, newTestRouter(t, teamsUsecase()), request{method: http.MethodPost, path: deleteTeamPath, admin: true})
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != teamsPath {
+		t.Errorf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestDeleteTeamTwice(t *testing.T) {
+	t.Parallel()
+
+	h := newTestRouter(t, teamsUsecase())
+	do(t, h, request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+
+	// второе нажатие не ошибка: показываем актуальный список
+	rec := do(t, h, request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	assertContains(t, rec.Body.String(), "Команд: 2")
+}
+
+func TestDeleteTeamRejected(t *testing.T) {
+	t.Parallel()
+
+	uc := teamsUsecase()
+	h := newTestRouter(t, uc)
+
+	rec := do(t, h, request{method: http.MethodPost, path: deleteTeamPath})
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
+		t.Errorf("guest: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+
+	rec = do(t, h, request{method: http.MethodPost, path: "/admin/games/7/teams/abc/delete", admin: true})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("bad id: status = %d", rec.Code)
+	}
+
+	if len(uc.gotDeleted) != 0 {
+		t.Errorf("nothing must be deleted, got %v", uc.gotDeleted)
 	}
 }

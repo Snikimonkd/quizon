@@ -13,6 +13,7 @@ type Repository interface {
 	ListRegistrationsRepository
 
 	RegisterRepository
+	DeleteRegistrationRepository
 	// RegisterAvailableRepository
 	CreateGameRepository
 	LoginRepository

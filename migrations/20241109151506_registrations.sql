@@ -19,7 +19,10 @@ CREATE TABLE registrations (
     -- название и номер группы
     group_name text,
     -- айди команды
-    team_id text
+    team_id text,
+
+    -- время удаления
+    deleted_at timestamptz
 );
 
 CREATE UNIQUE INDEX registrations_id ON registrations (id);

@@ -24,6 +24,7 @@ type gooseDbVersionTable struct {
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
+	DefaultColumns postgres.ColumnList
 }
 
 type GooseDbVersionTable struct {
@@ -67,6 +68,7 @@ func newGooseDbVersionTableImpl(schemaName, tableName, alias string) gooseDbVers
 		TstampColumn    = postgres.TimestampColumn("tstamp")
 		allColumns      = postgres.ColumnList{IDColumn, VersionIDColumn, IsAppliedColumn, TstampColumn}
 		mutableColumns  = postgres.ColumnList{VersionIDColumn, IsAppliedColumn, TstampColumn}
+		defaultColumns  = postgres.ColumnList{TstampColumn}
 	)
 
 	return gooseDbVersionTable{
@@ -80,5 +82,6 @@ func newGooseDbVersionTableImpl(schemaName, tableName, alias string) gooseDbVers
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
+		DefaultColumns: defaultColumns,
 	}
 }

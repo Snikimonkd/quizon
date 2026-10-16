@@ -12,6 +12,7 @@ import (
 )
 
 type Registrations struct {
+	ID            int64
 	GameID        int64
 	CreatedAt     time.Time
 	TeamName      string
@@ -21,4 +22,5 @@ type Registrations struct {
 	PlayersAmount int64
 	GroupName     *string
 	TeamID        *string
+	DeletedAt     *time.Time
 }

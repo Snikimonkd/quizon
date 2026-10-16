@@ -17,6 +17,7 @@ type registrationsTable struct {
 	postgres.Table
 
 	// Columns
+	ID            postgres.ColumnInteger
 	GameID        postgres.ColumnInteger
 	CreatedAt     postgres.ColumnTimestampz
 	TeamName      postgres.ColumnString
@@ -26,9 +27,11 @@ type registrationsTable struct {
 	PlayersAmount postgres.ColumnInteger
 	GroupName     postgres.ColumnString
 	TeamID        postgres.ColumnString
+	DeletedAt     postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
+	DefaultColumns postgres.ColumnList
 }
 
 type RegistrationsTable struct {
@@ -66,6 +69,7 @@ func newRegistrationsTable(schemaName, tableName, alias string) *RegistrationsTa
 
 func newRegistrationsTableImpl(schemaName, tableName, alias string) registrationsTable {
 	var (
+		IDColumn            = postgres.IntegerColumn("id")
 		GameIDColumn        = postgres.IntegerColumn("game_id")
 		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
 		TeamNameColumn      = postgres.StringColumn("team_name")
@@ -75,14 +79,17 @@ func newRegistrationsTableImpl(schemaName, tableName, alias string) registration
 		PlayersAmountColumn = postgres.IntegerColumn("players_amount")
 		GroupNameColumn     = postgres.StringColumn("group_name")
 		TeamIDColumn        = postgres.StringColumn("team_id")
-		allColumns          = postgres.ColumnList{GameIDColumn, CreatedAtColumn, TeamNameColumn, CaptainNameColumn, PhoneColumn, TelegramColumn, PlayersAmountColumn, GroupNameColumn, TeamIDColumn}
-		mutableColumns      = postgres.ColumnList{GameIDColumn, CreatedAtColumn, TeamNameColumn, CaptainNameColumn, PhoneColumn, TelegramColumn, PlayersAmountColumn, GroupNameColumn, TeamIDColumn}
+		DeletedAtColumn     = postgres.TimestampzColumn("deleted_at")
+		allColumns          = postgres.ColumnList{IDColumn, GameIDColumn, CreatedAtColumn, TeamNameColumn, CaptainNameColumn, PhoneColumn, TelegramColumn, PlayersAmountColumn, GroupNameColumn, TeamIDColumn, DeletedAtColumn}
+		mutableColumns      = postgres.ColumnList{IDColumn, GameIDColumn, CreatedAtColumn, TeamNameColumn, CaptainNameColumn, PhoneColumn, TelegramColumn, PlayersAmountColumn, GroupNameColumn, TeamIDColumn, DeletedAtColumn}
+		defaultColumns      = postgres.ColumnList{IDColumn}
 	)
 
 	return registrationsTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
+		ID:            IDColumn,
 		GameID:        GameIDColumn,
 		CreatedAt:     CreatedAtColumn,
 		TeamName:      TeamNameColumn,
@@ -92,8 +99,10 @@ func newRegistrationsTableImpl(schemaName, tableName, alias string) registration
 		PlayersAmount: PlayersAmountColumn,
 		GroupName:     GroupNameColumn,
 		TeamID:        TeamIDColumn,
+		DeletedAt:     DeletedAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
+		DefaultColumns: defaultColumns,
 	}
 }

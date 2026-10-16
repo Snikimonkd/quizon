@@ -4,32 +4,29 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/generated/postgres/public/table"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func InsertRegistration(t *testing.T, db *pgxpool.Pool, in model.Registrations) {
+// InsertRegistration - вставляет регистрацию и возвращает её id
+func InsertRegistration(ctx context.Context, t *testing.T, db *pgxpool.Pool, in model.Registrations) int64 {
 	t.Helper()
 	stmt := table.Registrations.INSERT(
-		table.Registrations.AllColumns,
+		table.Registrations.AllColumns.Except(table.Registrations.ID),
 	).MODEL(
 		in,
+	).RETURNING(
+		table.Registrations.ID,
 	)
 
 	query, args := stmt.Sql()
-	_, err := db.Exec(context.Background(), query, args...)
+	var id int64
+	err := db.QueryRow(ctx, query, args...).Scan(&id)
 	if err != nil {
-		t.Errorf("can't insert into registrations: %v", err.Error())
+		t.Fatalf("can't insert into registrations: %v", err)
 	}
-}
 
-func TruncateRegistrations(t *testing.T, db *pgxpool.Pool) {
-	t.Helper()
-	query := "TRUNCATE registrations"
-	_, err := db.Exec(context.Background(), query)
-	if err != nil {
-		t.Errorf("can't truncate registrations: %v", err.Error())
-	}
+	return id
 }

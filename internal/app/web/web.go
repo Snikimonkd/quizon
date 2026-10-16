@@ -31,6 +31,7 @@ type Usecase interface {
 	CreateRegistration(ctx context.Context, in model.Registrations) (usecase.RegistrationStatus, error)
 	CreateGame(ctx context.Context, in model.Games) (int64, error)
 	ListRegistrations(ctx context.Context, gameID int64) ([]usecase.Registration, error)
+	DeleteRegistration(ctx context.Context, gameID int64, registrationID int64) error
 	Login(ctx context.Context, login, password string) (*http.Cookie, error)
 }
 
@@ -94,6 +95,7 @@ func (wb *Web) Routes(r chi.Router) {
 		r.Post("/admin/games/new", wb.createGame)
 		r.Get("/admin/games/{id}/teams", wb.teamsPage)
 		r.Get("/admin/games/{id}/teams.xlsx", wb.exportTeams)
+		r.Post("/admin/games/{id}/teams/{teamID}/delete", wb.deleteTeam)
 	})
 }
 
