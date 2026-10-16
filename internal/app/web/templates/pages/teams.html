@@ -1,0 +1,52 @@
+{{define "content"}}
+{{with .Page}}
+<section class="wide">
+  <hgroup>
+    <h1>Участники</h1>
+    <p>{{.Game.Name}}, КвизON №{{.Game.ID}}, {{ruDateTime .Game.StartTime}}</p>
+  </hgroup>
+  <div class="teams-bar">
+    <p>Команд: {{len .Teams}}</p>
+    {{if .Teams}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
+  </div>
+  {{if .Teams}}
+  <div class="overflow-auto">
+    <table class="striped">
+      <thead>
+        <tr>
+          <th scope="col">№</th>
+          <th scope="col">Состав</th>
+          <th scope="col">Команда</th>
+          <th scope="col">Telegram</th>
+          <th scope="col">ID команды</th>
+          <th scope="col">Капитан</th>
+          <th scope="col">Группа</th>
+          <th scope="col">Телефон</th>
+          <th scope="col">Участников</th>
+          <th scope="col">Зарегистрировались</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Teams}}
+        <tr{{if gt .Number $.Page.MainAmount}} class="is-reserve"{{end}}>
+          <td>{{.Number}}</td>
+          <td>{{squad .Number $.Page.MainAmount}}</td>
+          <td>{{.TeamName}}</td>
+          <td>{{.Telegram}}</td>
+          <td>{{deref .TeamID}}</td>
+          <td>{{.CaptainName}}</td>
+          <td>{{deref .GroupName}}</td>
+          <td class="nowrap">{{.Phone}}</td>
+          <td>{{.PlayersAmount}}</td>
+          <td class="nowrap">{{fullTime .CreatedAt}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p>Пока никто не зарегистрировался.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

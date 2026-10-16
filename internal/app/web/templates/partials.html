@@ -1,0 +1,75 @@
+{{/* Поле формы: label, input, подсказка или ошибка. Ожидает web.field */}}
+{{define "field"}}
+<label for="f-{{.Name}}">{{.Label}}{{if .Required}}<span class="req" aria-hidden="true"> *</span>{{end}}</label>
+<input id="f-{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"
+  {{- with .Placeholder}} placeholder="{{.}}"{{end}}
+  {{- with .Autocomplete}} autocomplete="{{.}}"{{end}}
+  {{- with .InputMode}} inputmode="{{.}}"{{end}}
+  {{- with .Min}} min="{{.}}"{{end}}
+  {{- if .Required}} required{{end}}
+  {{- if .Error}} aria-invalid="true" aria-describedby="f-{{.Name}}-msg"
+  {{- else if .Hint}} aria-describedby="f-{{.Name}}-msg"{{end}}>
+{{if .Error}}<small id="f-{{.Name}}-msg">{{.Error}}</small>
+{{- else if .Hint}}<small id="f-{{.Name}}-msg">{{.Hint}}</small>{{end}}
+{{end}}
+
+{{/* Обратный отсчёт до открытия регистрации, app.js обновляет текст каждую секунду */}}
+{{define "countdown"}}<time datetime="{{iso .}}" data-countdown>{{ruDateTime .}}</time>{{end}}
+
+{{/* Карточка-билет игры на главной. Ожидает web.gameView */}}
+{{define "game_card"}}
+<article class="ticket{{if eq .State "finished"}} ticket--past{{end}}">
+  <header class="ticket__date">
+    <time datetime="{{iso .StartTime}}">{{ruDate .StartTime}}</time>
+    <span>{{ruWeekday .StartTime}}</span>
+  </header>
+  <div class="ticket__body">
+    <div class="ticket__title">
+      <p>{{.Name}}</p>
+      <h2>КвизON №{{.ID}}</h2>
+    </div>
+    <dl class="ticket__facts">
+      <div><dt>начало игры</dt><dd>{{hhmm .StartTime}}</dd></div>
+      <div><dt>с команды</dt><dd>Free</dd></div>
+    </dl>
+    {{if .Admin}}
+    <a class="ticket__cta" href="/admin/games/{{.ID}}/teams">Список участников</a>
+    {{else if eq .State "open"}}
+    <a class="ticket__cta" href="/games/{{.ID}}/register">Регистрация</a>
+    {{else if eq .State "reserve"}}
+    <a class="ticket__cta" href="/games/{{.ID}}/register">Регистрация в резерв</a>
+    {{else if eq .State "waiting"}}
+    <p class="ticket__cta ticket__cta--off">Регистрация откроется {{template "countdown" .RegistrationOpenTime}}</p>
+    {{else if eq .State "closed"}}
+    <p class="ticket__cta ticket__cta--off">Мест нет</p>
+    {{else}}
+    <p class="ticket__cta ticket__cta--off">Игра завершена</p>
+    {{end}}
+  </div>
+</article>
+{{end}}
+
+{{/* Итог регистрации вместо формы. Ожидает web.registerView */}}
+{{define "outcome"}}
+<div class="outcome outcome--{{.Outcome}}" role="status">
+  {{if eq .Outcome "ok"}}
+  <h2>Поздравляем!</h2>
+  <p>Первые задания от КвизON успешно выполнены — твоя команда зарегистрирована!</p>
+  <p>Напомним, что игра пройдёт в {{ruDateTime .Game.StartTime}}, {{.Game.Location}}. До встречи на игре!</p>
+  {{else if eq .Outcome "reserve"}}
+  <h2>Ой 🙈! Вы в резерве</h2>
+  <p>Кажется, места в основном составе закончились. Вашу команду зарегистрировали в резерв.</p>
+  <p>Скоро с тобой обязательно свяжутся, а если места освободятся — сообщат и предложат место на игре в порядке очереди.</p>
+  {{else if eq .Outcome "closed"}}
+  <h2>Извини 🙈! Мест нет</h2>
+  <p>Кажется, места на игру закончились. Не расстраивайся, в следующий раз обязательно получится!</p>
+  {{else if eq .Outcome "waiting"}}
+  <h2>Регистрация ещё не открыта</h2>
+  <p>Она откроется {{template "countdown" .Game.RegistrationOpenTime}}. Возвращайся чуть позже.</p>
+  {{else}}
+  <h2>Игра уже прошла</h2>
+  <p>Регистрация на неё закрыта. Анонсы следующих игр — на главной и в наших соцсетях.</p>
+  {{end}}
+  <p><a href="/">Ко всем играм</a></p>
+</div>
+{{end}}

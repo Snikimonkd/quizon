@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"quizon/internal/app/delivery/api"
 	"quizon/internal/app/repository"
 
 	"github.com/google/uuid"
@@ -27,8 +26,9 @@ type CookieCache interface {
 	Set(key string, val *http.Cookie)
 }
 
-func (u usecase) Login(ctx context.Context, req api.PostLoginRequestObject) (*http.Cookie, error) {
-	password, err := u.repository.GetPassword(ctx, req.Body.Login)
+// Login - проверяет логин и пароль админа и выдаёт cookie сессии
+func (u usecase) Login(ctx context.Context, login, password string) (*http.Cookie, error) {
+	hash, err := u.repository.GetPassword(ctx, login)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, ErrWrongPassword
 	}
@@ -36,7 +36,7 @@ func (u usecase) Login(ctx context.Context, req api.PostLoginRequestObject) (*ht
 		return nil, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(req.Body.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
 		return nil, ErrWrongPassword
 	}

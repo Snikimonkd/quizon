@@ -19,14 +19,10 @@ test-cov:test
 bin-deps:
 	GOPROXY="proxy.golang.org" GOBIN=$(LOCAL_BIN) go install github.com/go-jet/jet/v2/cmd/jet@latest
 	GOPROXY="proxy.golang.org" GOBIN=$(LOCAL_BIN) go install github.com/pressly/goose/v3/cmd/goose@latest
-	GOPROXY="proxy.golang.org" GOBIN=$(LOCAL_BIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	GOPROXY="proxy.golang.org" GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 
 jet:bin-deps
 	@PATH=$(LOCAL_BIN):$(PATH) jet -dsn $(PG_DSN) -path=./internal/generated/ -schema=public
-
-gen-api:bin-deps
-	@PATH=$(LOCAL_BIN):$(PATH) oapi-codegen --config=openapi/config.yaml openapi/api.yaml
 
 lint:bin-deps
 	@PATH=$(LOCAL_BIN):$(PATH) golangci-lint run --config=.golangci.yml

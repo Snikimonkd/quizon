@@ -1,0 +1,527 @@
+/* КвизON поверх Pico: цвета из прежнего фронта, всё остальное — переменные Pico */
+
+@font-face {
+  font-family: "Product Sans";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/ProductSans-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Product Sans";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/ProductSans-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Product Sans";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/ProductSans-Bold.ttf") format("truetype");
+}
+
+[data-theme="dark"] {
+  --q-navy: #182a3e;
+  --q-surface: #1f354b;
+  --q-deep: #0a1221;
+  --q-gold: #e0ac59;
+  --q-gold-light: #f4da6a;
+  --q-muted: rgba(255, 255, 255, 0.64);
+  --q-danger: #ef4444;
+
+  --pico-font-family: "Product Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pico-font-family-sans-serif: var(--pico-font-family);
+  --pico-background-color: var(--q-navy);
+  --pico-color: #fff;
+  --pico-h1-color: #fff;
+  --pico-h2-color: #fff;
+  --pico-h3-color: #fff;
+  --pico-muted-color: var(--q-muted);
+  --pico-muted-border-color: rgba(255, 255, 255, 0.12);
+  --pico-border-radius: 12px;
+
+  --pico-primary: var(--q-gold);
+  --pico-primary-underline: rgba(224, 172, 89, 0.5);
+  --pico-primary-hover: var(--q-gold-light);
+  --pico-primary-hover-underline: var(--q-gold-light);
+  --pico-primary-focus: rgba(244, 218, 106, 0.45);
+  /* кнопки как в прежнем фронте: тёмные, с золотой рамкой */
+  --pico-primary-background: var(--q-navy);
+  --pico-primary-border: var(--q-gold);
+  --pico-primary-inverse: #fff;
+  --pico-primary-hover-background: #24405c;
+  --pico-primary-hover-border: var(--q-gold-light);
+
+  --pico-card-background-color: var(--q-surface);
+  --pico-card-sectioning-background-color: var(--q-navy);
+  --pico-card-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.38);
+
+  --pico-form-element-background-color: var(--q-navy);
+  --pico-form-element-selected-background-color: var(--q-navy);
+  --pico-form-element-border-color: rgba(255, 255, 255, 0.2);
+  --pico-form-element-color: #fff;
+  --pico-form-element-placeholder-color: rgba(255, 255, 255, 0.38);
+  --pico-form-element-active-background-color: var(--q-navy);
+  --pico-form-element-active-border-color: var(--q-gold);
+  --pico-form-element-focus-color: rgba(224, 172, 89, 0.45);
+  --pico-form-element-invalid-border-color: var(--q-danger);
+  --pico-form-element-invalid-active-border-color: var(--q-danger);
+  --pico-form-element-invalid-focus-color: rgba(239, 68, 68, 0.4);
+  --pico-del-color: #ff8a8a;
+
+  --pico-table-border-color: rgba(255, 255, 255, 0.14);
+  --pico-table-row-stripped-background-color: rgba(10, 18, 33, 0.55);
+}
+
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--q-gold-light);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+button,
+[role="button"] {
+  border-radius: 999px;
+  border-width: 2px;
+  font-weight: 700;
+}
+
+/* только формы в основной части страницы, кнопка «Выйти» в шапке живёт по своим правилам */
+main form button[type="submit"] {
+  width: 100%;
+  margin-top: calc(var(--pico-spacing) * 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+form.htmx-request button[type="submit"] {
+  opacity: 0.6;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Шапка */
+
+.site-header nav {
+  padding-block: 0.5rem;
+}
+
+.brand img {
+  display: block;
+  width: auto;
+  height: 2.75rem;
+}
+
+.site-header form.inline {
+  margin: 0;
+}
+
+/* пункты шапки: ссылки и кнопка «Выйти» выглядят одинаково */
+.site-header .nav-action {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: var(--pico-nav-link-spacing-vertical) var(--pico-nav-link-spacing-horizontal);
+  border: 0;
+  border-radius: var(--pico-border-radius);
+  background: none;
+  box-shadow: none;
+  color: var(--pico-primary);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 500;
+  line-height: var(--pico-line-height);
+  letter-spacing: 0;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.site-header .nav-action:hover {
+  background: none;
+  color: var(--pico-primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.site-header .nav-action:focus-visible {
+  outline: 3px solid var(--q-gold-light);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+@media (min-width: 48rem) {
+  .brand img {
+    height: 4.5rem;
+  }
+}
+
+/* Карточки и формы */
+
+.sheet {
+  max-width: 34rem;
+  margin: 0 auto var(--pico-block-spacing-vertical);
+  padding: 1.5rem 1.25rem;
+  border-radius: 21px;
+  background: var(--q-surface);
+  box-shadow: var(--pico-card-box-shadow);
+}
+
+.sheet.narrow {
+  max-width: 24rem;
+}
+
+@media (min-width: 36rem) {
+  .sheet {
+    padding: 2rem;
+  }
+}
+
+hgroup > p:last-child {
+  color: var(--q-gold-light);
+  font-weight: 500;
+  font-size: 1.15rem;
+}
+
+.facts {
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.facts li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  list-style: none;
+  margin-bottom: 0.4rem;
+}
+
+.facts svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: var(--q-gold);
+}
+
+.req {
+  color: var(--q-gold-light);
+}
+
+.agreement {
+  margin: var(--pico-spacing) 0 0;
+  color: var(--q-muted);
+  font-size: 0.875rem;
+}
+
+.agreement a,
+.site-footer a {
+  color: var(--q-gold-light);
+}
+
+.form-error {
+  padding: 0.75rem 1rem;
+  border-radius: var(--pico-border-radius);
+  background: rgba(239, 68, 68, 0.14);
+  color: #ffb4b4;
+}
+
+.outcome {
+  padding: 1.25rem;
+  border-radius: 18px;
+  background: var(--q-deep);
+}
+
+.outcome h2 {
+  margin-bottom: 0.75rem;
+  color: var(--q-gold);
+  font-size: 1.5rem;
+}
+
+.outcome--ok h2 {
+  color: var(--q-gold-light);
+}
+
+.outcome p:last-child {
+  margin-bottom: 0;
+}
+
+.outcome time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.empty {
+  text-align: center;
+}
+
+/* Билет игры — главный визуальный элемент */
+
+.tickets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.75rem;
+  max-width: 30rem;
+  margin: 0 auto var(--pico-block-spacing-vertical);
+}
+
+@media (min-width: 62rem) {
+  .tickets {
+    max-width: none;
+    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  }
+}
+
+.ticket {
+  --band: 3.25rem;
+  --notch: 1.25rem;
+  position: relative;
+  margin: 0;
+  padding: 0 3px 3px;
+  border-radius: 30px;
+  background: var(--q-gold);
+  box-shadow: var(--pico-card-box-shadow);
+}
+
+/* вырезы по краям на линии отрыва, как у настоящего билета */
+.ticket::before,
+.ticket::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--band) - var(--notch) / 2);
+  width: var(--notch);
+  height: var(--notch);
+  border-radius: 50%;
+  background: var(--q-navy);
+}
+
+.ticket::before {
+  left: calc(var(--notch) / -2);
+}
+
+.ticket::after {
+  right: calc(var(--notch) / -2);
+}
+
+.ticket > .ticket__date {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: var(--band);
+  margin: 0;
+  padding: 0 1rem;
+  border: 0;
+  background: none;
+  color: var(--q-deep);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.ticket__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 27px;
+  background: var(--q-navy);
+}
+
+.ticket__title {
+  padding: 1.1rem 1.25rem 1rem;
+  border-radius: 18px;
+  background: var(--q-deep);
+}
+
+.ticket__title p {
+  margin: 0 0 0.75rem;
+  color: #fff;
+  font-weight: 500;
+  font-size: 1.1rem;
+}
+
+.ticket__title h2 {
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 2px solid var(--q-gold);
+  color: var(--q-gold);
+  font-size: 1.6rem;
+}
+
+.ticket__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.ticket__facts > div {
+  display: flex;
+  flex-direction: column-reverse;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  background: var(--q-deep);
+}
+
+.ticket__facts dt {
+  margin: 0;
+  color: var(--q-gold);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.ticket__facts dd {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ticket__cta {
+  display: block;
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border: 2px solid var(--q-gold);
+  border-radius: 999px;
+  background: var(--q-navy);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+a.ticket__cta:hover {
+  background: var(--q-gold);
+  color: var(--q-deep);
+}
+
+.ticket__cta--off {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--q-muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ticket__cta--off time {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ticket--past {
+  filter: saturate(0.3);
+  opacity: 0.7;
+}
+
+/* Таблица участников */
+
+.teams-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--pico-spacing);
+}
+
+.teams-bar p {
+  margin: 0;
+}
+
+.teams-bar [role="button"] {
+  width: auto;
+}
+
+table {
+  font-size: 0.9rem;
+}
+
+th {
+  color: var(--q-gold);
+  white-space: nowrap;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+tr.is-reserve td {
+  color: var(--q-muted);
+}
+
+/* Подвал */
+
+.site-footer {
+  padding-block: 2rem;
+  text-align: center;
+}
+
+.site-footer__logo {
+  width: 90px;
+  height: auto;
+}
+
+.socials {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin: 1.25rem auto;
+  padding: 0 0 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 24rem;
+}
+
+.socials li {
+  list-style: none;
+  margin: 0;
+}
+
+.socials a {
+  display: block;
+  color: #c8c6b2;
+}
+
+.socials a:hover {
+  color: var(--q-gold);
+}
+
+.socials svg {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  fill: currentColor;
+}
+
+.site-footer p {
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.site-footer p a {
+  color: #c8c6b2;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

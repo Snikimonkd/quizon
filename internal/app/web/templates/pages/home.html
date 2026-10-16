@@ -1,0 +1,17 @@
+{{define "content"}}
+<h1 class="visually-hidden">Игры КвизON</h1>
+{{with .Page.Games}}
+<div class="tickets">
+  {{range .}}{{template "game_card" .}}{{end}}
+</div>
+{{else}}
+<article class="sheet empty">
+  <h2>Игр пока нет</h2>
+  <p>
+    Анонсы новых игр выходят в <a href="https://t.me/quizonmsk" target="_blank" rel="noopener noreferrer">Telegram</a>
+    и <a href="https://vk.com/quizonmsk" target="_blank" rel="noopener noreferrer">ВКонтакте</a>.
+  </p>
+  {{if $.Admin}}<a href="/admin/games/new" role="button">Создать игру</a>{{end}}
+</article>
+{{end}}
+{{end}}
