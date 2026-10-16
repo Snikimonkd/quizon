@@ -94,8 +94,10 @@ func (f *fakeUsecase) DeleteRegistration(_ context.Context, gameID int64, regist
 		return usecase.ErrNotFound
 	}
 	for i, team := range f.teams {
-		if team.ID == registrationID {
-			f.teams = append(f.teams[:i], f.teams[i+1:]...)
+		if team.ID == registrationID && !team.Deleted() {
+			deletedAt := testNow
+			f.teams[i].DeletedAt = &deletedAt
+			f.renumber()
 			f.gotDeleted = append(f.gotDeleted, registrationID)
 			return nil
 		}
@@ -110,6 +112,18 @@ func (f *fakeUsecase) Login(context.Context, string, string) (*http.Cookie, erro
 	}
 
 	return testCookie("new-token"), nil
+}
+
+// renumber - как в usecase: удалённая команда остаётся в списке без номера, остальные нумеруются по порядку
+func (f *fakeUsecase) renumber() {
+	var number int64
+	for i := range f.teams {
+		f.teams[i].Number = 0
+		if !f.teams[i].Deleted() {
+			number++
+			f.teams[i].Number = number
+		}
+	}
 }
 
 func testCookie(value string) *http.Cookie {
@@ -264,6 +278,8 @@ func TestHome(t *testing.T) {
 			"data-countdown",
 			"Игра завершена",
 			"18 октября",
+			// время начала рядом с датой в полосе билета
+			`18 октября <span class="ticket__time">12:00</span></time>`,
 			"воскресенье",
 			`href="/login"`,
 		)
@@ -494,6 +510,15 @@ func TestAdminRequiresLogin(t *testing.T) {
 		`name="main_amount" type="number" value="20"`,
 		`name="reserve_amount" type="number" value="10"`,
 	)
+
+	// открытие регистрации идёт сразу за временем игры
+	body := rec.Body.String()
+	start := strings.Index(body, `name="start_time"`)
+	open := strings.Index(body, `name="registration_open_time"`)
+	location := strings.Index(body, `name="location"`)
+	if start < 0 || open < start || location < open {
+		t.Errorf("fields order: start_time=%d, registration_open_time=%d, location=%d", start, open, location)
+	}
 }
 
 func loginForm(password string) url.Values {
@@ -641,6 +666,38 @@ func TestTeamsPage(t *testing.T) {
 	}
 }
 
+func TestTeamsConfirmDialog(t *testing.T) {
+	t.Parallel()
+
+	const (
+		gone     = "Команда потеряет место в игре и останется в списке серой, без номера. Вернуть её отсюда не получится."
+		takeover = " Её место в основе займёт «Третьи» из резерва."
+	)
+
+	rec := do(t, teamsRouter(t), request{method: http.MethodGet, path: teamsPath, admin: true})
+	body := rec.Body.String()
+	assertContains(t, body,
+		`<dialog id="confirm-dialog"`,
+		`<button value="cancel" class="confirm__cancel" autofocus>Отмена</button>`,
+		// третья команда сама в резерве, на её место никто не придёт
+		`data-confirm-text="`+gone+`"`,
+	)
+	// первые две в основе: про первую команду резерва говорится у обеих
+	if got := strings.Count(body, `data-confirm-text="`+gone+takeover+`"`); got != 2 {
+		t.Errorf("teams with reserve takeover = %d, want 2", got)
+	}
+}
+
+func TestTeamsConfirmWithoutReserve(t *testing.T) {
+	t.Parallel()
+
+	uc := teamsUsecase()
+	uc.game.MainAmount = 3
+
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	assertNotContains(t, rec.Body.String(), "из резерва")
+}
+
 func TestTeamsExport(t *testing.T) {
 	t.Parallel()
 
@@ -768,11 +825,62 @@ func TestDeleteTeam(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	// htmx получает только содержимое #teams с обновлённым списком
-	assertContains(t, body, "Команд: 2", "Первые", "Третьи")
-	assertNotContains(t, body, "<!doctype html>", "<h1>", "Вторые")
+	// htmx получает только содержимое #teams с обновлённым списком, окно подтверждения остаётся на странице
+	assertContains(t, body, "Команд: 2", "Первые", "Вторые", "Третьи")
+	assertNotContains(t, body, "<!doctype html>", "<h1>", "confirm-dialog")
 	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
 		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
+	}
+}
+
+func deletedTeamUsecase(t *testing.T) *fakeUsecase {
+	t.Helper()
+
+	uc := teamsUsecase()
+	err := uc.DeleteRegistration(t.Context(), 7, 20)
+	if err != nil {
+		t.Fatalf("can't delete team: %v", err)
+	}
+
+	return uc
+}
+
+func TestTeamsPageDeleted(t *testing.T) {
+	t.Parallel()
+
+	rec := do(t, newTestRouter(t, deletedTeamUsecase(t)), request{method: http.MethodGet, path: teamsPath, admin: true})
+	body := rec.Body.String()
+	// «Вторые» удалены: строка на месте, серая, без номера и без корзины; «Третьи» поднялись в основу
+	assertContains(t, body,
+		"Команд: 2",
+		`<tr class="is-deleted" title="Команда удалена">`,
+		`<td><span class="visually-hidden">Удалена</span></td>`,
+		"<td>Вторые</td>",
+	)
+	assertNotContains(t, body, "is-reserve", `/teams/20/delete"`)
+	if got := strings.Count(body, "hx-post="); got != 2 {
+		t.Errorf("delete buttons = %d, want 2", got)
+	}
+}
+
+func TestTeamsExportSkipsDeleted(t *testing.T) {
+	t.Parallel()
+
+	h := newTestRouter(t, deletedTeamUsecase(t))
+	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
+
+	f, err := excelize.OpenReader(rec.Body)
+	if err != nil {
+		t.Fatalf("can't open xlsx: %v", err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+
+	rows, err := f.GetRows("Команды")
+	if err != nil {
+		t.Fatalf("can't read rows: %v", err)
+	}
+	if len(rows) != 3 || rows[1][2] != "Первые" || rows[2][0] != "2" || rows[2][2] != "Третьи" {
+		t.Errorf("export must contain only active teams: %v", rows)
 	}
 }
 
@@ -818,4 +926,60 @@ func TestDeleteTeamRejected(t *testing.T) {
 	if len(uc.gotDeleted) != 0 {
 		t.Errorf("nothing must be deleted, got %v", uc.gotDeleted)
 	}
+}
+
+func TestParsePagesChecksTemplates(t *testing.T) {
+	t.Parallel()
+
+	tmpl := func(text string) *fstest.MapFile { return &fstest.MapFile{Data: []byte(text)} }
+	pagesFS := func() fstest.MapFS {
+		fsys := fstest.MapFS{
+			"templates/layout.html":   tmpl(`{{define "layout"}}{{template "content" .}}{{end}}`),
+			"templates/partials.html": tmpl(``),
+		}
+		for _, p := range allPages {
+			fsys[p.templatePath()] = tmpl(`{{define "content"}}` + string(p) + `{{end}}`)
+		}
+
+		return fsys
+	}
+
+	_, err := parsePages(pagesFS(), assets{})
+	if err != nil {
+		t.Fatalf("all pages present: %v", err)
+	}
+
+	missing := pagesFS()
+	delete(missing, pageTeams.templatePath())
+	_, err = parsePages(missing, assets{})
+	if err == nil {
+		t.Error("missing template must be an error")
+	}
+
+	extra := pagesFS()
+	extra["templates/pages/forgotten.html"] = tmpl(`{{define "content"}}{{end}}`)
+	_, err = parsePages(extra, assets{})
+	if err == nil || !strings.Contains(err.Error(), "forgotten.html") {
+		t.Errorf("template without page constant must be an error, got %v", err)
+	}
+}
+
+func TestPageTitles(t *testing.T) {
+	t.Parallel()
+
+	seen := make(map[pageTitle]page, len(allPages))
+	for _, p := range allPages {
+		title := p.title()
+		if title == "" {
+			t.Errorf("page %s has no title", p)
+		}
+		if other, ok := seen[title]; ok {
+			t.Errorf("pages %s and %s have the same title %q", other, p, title)
+		}
+		seen[title] = p
+	}
+
+	// заголовок попадает во вкладку браузера
+	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
+	assertContains(t, rec.Body.String(), "<title>Вход — КвизON</title>")
 }

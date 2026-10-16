@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/samber/lo"
 )
 
 // datetimeLocal - формат значения <input type="datetime-local">
@@ -128,6 +129,10 @@ func (f gameForm) fields(errs map[string]string) []field {
 			Hint: "По Москве", Required: true, Error: errs["StartTime"],
 		},
 		{
+			Name: "registration_open_time", Label: "Открытие регистрации", Type: inputDateTime,
+			Value: f.RegistrationOpenTime, Hint: "По Москве", Required: true, Error: errs["RegistrationOpenTime"],
+		},
+		{
 			Name: "location", Label: "Место проведения", Type: inputText, Value: f.Location,
 			Required: true, Error: errs["Location"],
 		},
@@ -138,10 +143,6 @@ func (f gameForm) fields(errs map[string]string) []field {
 		{
 			Name: "reserve_amount", Label: "Команд в резерве", Type: inputNumber, Value: f.ReserveAmount,
 			InputMode: inputModeNumeric, Min: "0", Error: errs["ReserveAmount"],
-		},
-		{
-			Name: "registration_open_time", Label: "Открытие регистрации", Type: inputDateTime,
-			Value: f.RegistrationOpenTime, Hint: "По Москве", Required: true, Error: errs["RegistrationOpenTime"],
 		},
 	}
 }
@@ -157,7 +158,7 @@ func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
 		MainAmount:    defaultMainAmount,
 		ReserveAmount: defaultReserveAmount,
 	}
-	wb.renderPage(w, http.StatusOK, "game_new", wb.layout(r, "Новая игра", gameFormView{Fields: form.fields(nil)}))
+	wb.renderPage(w, r, http.StatusOK, pageGameNew, gameFormView{Fields: form.fields(nil)})
 }
 
 func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +167,7 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 	errs := form.validate()
 	if len(errs) > 0 {
 		view := gameFormView{Fields: form.fields(errs)}
-		wb.renderPage(w, http.StatusUnprocessableEntity, "game_new", wb.layout(r, "Новая игра", view))
+		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, view)
 		return
 	}
 
@@ -180,7 +181,8 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 }
 
 type teamsView struct {
-	Game  gameView
+	Game gameView
+	// Teams - все регистрации в порядке подачи, удалённые тоже: в таблице они серые и без номера
 	Teams []usecase.Registration
 	// MainAmount - команды с номером больше этого попали в резерв
 	MainAmount int64
@@ -189,6 +191,18 @@ type teamsView struct {
 // ReserveStart - номер первой команды в резерве
 func (v teamsView) ReserveStart() int64 {
 	return v.MainAmount + 1
+}
+
+// Active - команды, которые остались в игре
+func (v teamsView) Active() []usecase.Registration {
+	return lo.Reject(v.Teams, func(t usecase.Registration, _ int) bool { return t.Deleted() })
+}
+
+// FirstReserve - первая команда резерва: она займёт место команды, удалённой из основы. Пусто, если резерва нет
+func (v teamsView) FirstReserve() string {
+	team, _ := lo.Find(v.Teams, func(t usecase.Registration) bool { return t.Number == v.ReserveStart() })
+
+	return team.TeamName
 }
 
 func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
@@ -216,7 +230,7 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderPage(w, http.StatusOK, "teams", wb.layout(r, "Участники", view))
+	wb.renderPage(w, r, http.StatusOK, pageTeams, view)
 }
 
 // deleteTeam - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются
@@ -249,5 +263,5 @@ func (wb *Web) deleteTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderBlock(w, http.StatusOK, "teams", "teams", view)
+	wb.renderBlock(w, http.StatusOK, pageTeams, "teams", view)
 }

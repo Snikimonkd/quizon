@@ -49,7 +49,7 @@ func (wb *Web) loginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderPage(w, http.StatusOK, "login", wb.layout(r, "Вход", loginView{}))
+	wb.renderPage(w, r, http.StatusOK, pageLogin, loginView{})
 }
 
 func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
@@ -60,14 +60,14 @@ func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
 
 	if view.Login == "" || password == "" {
 		view.Error = "Введите логин и пароль"
-		wb.renderPage(w, http.StatusUnprocessableEntity, "login", wb.layout(r, "Вход", view))
+		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageLogin, view)
 		return
 	}
 
 	cookie, err := wb.usecase.Login(r.Context(), view.Login, password)
 	if errors.Is(err, usecase.ErrWrongPassword) {
 		view.Error = "Неверный логин или пароль"
-		wb.renderPage(w, http.StatusUnprocessableEntity, "login", wb.layout(r, "Вход", view))
+		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageLogin, view)
 		return
 	}
 	if err != nil {

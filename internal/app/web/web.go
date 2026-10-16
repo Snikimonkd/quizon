@@ -45,7 +45,7 @@ type CookieCache interface {
 type Web struct {
 	usecase Usecase
 	cache   CookieCache
-	pages   map[string]*template.Template
+	pages   map[page]*template.Template
 	static  fs.FS
 	assets  assets
 	now     func() time.Time
@@ -63,7 +63,7 @@ func New(uc Usecase, cache CookieCache) (*Web, error) {
 		return nil, err
 	}
 
-	pages, err := parsePages(assets)
+	pages, err := parsePages(files, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -99,30 +99,36 @@ func (wb *Web) Routes(r chi.Router) {
 	})
 }
 
-func parsePages(assets assets) (map[string]*template.Template, error) {
-	base, err := template.New("").Funcs(funcs(assets)).ParseFS(files, "templates/layout.html", "templates/partials.html")
+func parsePages(fsys fs.FS, assets assets) (map[page]*template.Template, error) {
+	base, err := template.New("").Funcs(funcs(assets)).ParseFS(fsys, "templates/layout.html", "templates/partials.html")
 	if err != nil {
 		return nil, fmt.Errorf("can't parse base templates: %w", err)
 	}
 
-	names, err := fs.Glob(files, "templates/pages/*.html")
-	if err != nil {
-		return nil, fmt.Errorf("can't list page templates: %w", err)
-	}
-
-	pages := make(map[string]*template.Template, len(names))
-	for _, name := range names {
-		page, err := base.Clone()
+	pages := make(map[page]*template.Template, len(allPages))
+	for _, p := range allPages {
+		tmpl, err := base.Clone()
 		if err != nil {
 			return nil, fmt.Errorf("can't clone base templates: %w", err)
 		}
 
-		page, err = page.ParseFS(files, name)
+		tmpl, err = tmpl.ParseFS(fsys, p.templatePath())
 		if err != nil {
-			return nil, fmt.Errorf("can't parse %s: %w", name, err)
+			return nil, fmt.Errorf("can't parse page %s: %w", p, err)
 		}
 
-		pages[strings.TrimSuffix(path.Base(name), ".html")] = page
+		pages[p] = tmpl
+	}
+
+	// шаблон без константы в allPages никогда не отрендерится - скорее всего, его забыли добавить
+	names, err := fs.Glob(fsys, "templates/pages/*.html")
+	if err != nil {
+		return nil, fmt.Errorf("can't list page templates: %w", err)
+	}
+	for _, name := range names {
+		if _, ok := pages[page(strings.TrimSuffix(path.Base(name), ".html"))]; !ok {
+			return nil, fmt.Errorf("template %s has no page constant in allPages", name)
+		}
 	}
 
 	return pages, nil
@@ -171,43 +177,41 @@ func funcs(assets assets) template.FuncMap {
 
 // layoutData - общие данные для всех страниц
 type layoutData struct {
-	Title string
+	Title pageTitle
 	Admin bool
 	Year  int
 	Page  any
 }
 
-func (wb *Web) layout(r *http.Request, title string, page any) layoutData {
-	return layoutData{
-		Title: title,
+// renderPage - рендерит страницу целиком: общий каркас с заголовком страницы и её данные view
+func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p page, view any) {
+	data := layoutData{
+		Title: p.title(),
 		Admin: wb.isAdmin(r),
 		Year:  wb.now().In(utils.LocMsk).Year(),
-		Page:  page,
+		Page:  view,
 	}
-}
 
-// renderPage - рендерит страницу целиком
-func (wb *Web) renderPage(w http.ResponseWriter, status int, name string, data layoutData) {
-	wb.execute(w, status, name, "layout", data)
+	wb.execute(w, status, p, "layout", data)
 }
 
 // renderBlock - рендерит один блок страницы, для ответов на htmx-запросы
-func (wb *Web) renderBlock(w http.ResponseWriter, status int, name, block string, data any) {
-	wb.execute(w, status, name, block, data)
+func (wb *Web) renderBlock(w http.ResponseWriter, status int, p page, block string, data any) {
+	wb.execute(w, status, p, block, data)
 }
 
-func (wb *Web) execute(w http.ResponseWriter, status int, name, block string, data any) {
-	page, ok := wb.pages[name]
+func (wb *Web) execute(w http.ResponseWriter, status int, p page, block string, data any) {
+	tmpl, ok := wb.pages[p]
 	if !ok {
-		logger.Errorf("unknown page template: %s", name)
+		logger.Errorf("unknown page template: %s", p)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	var buf bytes.Buffer
-	err := page.ExecuteTemplate(&buf, block, data)
+	err := tmpl.ExecuteTemplate(&buf, block, data)
 	if err != nil {
-		logger.Errorf("can't render %s/%s: %v", name, block, err)
+		logger.Errorf("can't render %s/%s: %v", p, block, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

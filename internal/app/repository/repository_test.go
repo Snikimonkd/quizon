@@ -150,8 +150,10 @@ func Test_repository_DeleteRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't list registrations: %v", err)
 	}
-	if len(regs) != 2 || regs[0].ID != ids[0] || regs[1].ID != ids[2] {
-		t.Errorf("ListRegistrations must skip deleted: %+v", regs)
+	// удалённая остаётся на своём месте в списке, но с deleted_at
+	if len(regs) != 3 || regs[1].ID != ids[1] || regs[1].DeletedAt == nil ||
+		regs[0].DeletedAt != nil || regs[2].DeletedAt != nil {
+		t.Errorf("ListRegistrations must keep deleted with deleted_at: %+v", regs)
 	}
 }
 

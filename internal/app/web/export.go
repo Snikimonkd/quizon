@@ -62,7 +62,8 @@ func teamsXLSX(view teamsView) (*bytes.Buffer, error) {
 		return nil, fmt.Errorf("can't write header: %w", err)
 	}
 
-	for i, t := range view.Teams {
+	// в выгрузку идут только оставшиеся в игре команды
+	for i, t := range view.Active() {
 		row := []any{
 			t.Number,
 			squad(t.Number, view.MainAmount),
