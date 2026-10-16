@@ -81,7 +81,7 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 		view.Games = append(view.Games, gv)
 	}
 
-	wb.renderPage(w, http.StatusOK, "home", wb.layout(r, "Игры", view))
+	wb.renderPage(w, r, http.StatusOK, pageHome, view)
 }
 
 // loadGame - достаёт игру из {id} в пути; при ошибке сам пишет ответ

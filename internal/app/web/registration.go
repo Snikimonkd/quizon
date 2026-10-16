@@ -149,7 +149,7 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 		Fields: registrationForm{}.fields(nil),
 	}
 	view.Outcome = closedOutcome(view.Game)
-	wb.renderPage(w, http.StatusOK, "register", wb.layout(r, "Регистрация на игру", view))
+	wb.renderPage(w, r, http.StatusOK, pageRegister, view)
 }
 
 func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
@@ -203,9 +203,9 @@ func closedOutcome(game gameView) outcome {
 
 func (wb *Web) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
 	if isHTMX(r) {
-		wb.renderBlock(w, status, "register", "registration", view)
+		wb.renderBlock(w, status, pageRegister, "registration", view)
 		return
 	}
 
-	wb.renderPage(w, status, "register", wb.layout(r, "Регистрация на игру", view))
+	wb.renderPage(w, r, status, pageRegister, view)
 }

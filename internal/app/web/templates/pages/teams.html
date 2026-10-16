@@ -9,6 +9,21 @@
     {{template "teams" .}}
   </div>
 </section>
+
+{{/* Подтверждение удаления. app.js показывает его вместо window.confirm:
+     вопрос берёт из hx-confirm, пояснение — из data-confirm-text формы */}}
+<dialog id="confirm-dialog" class="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <article>
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+    <footer>
+      <form method="dialog">
+        <button value="cancel" class="confirm__cancel" autofocus>Отмена</button>
+        <button value="confirm" class="confirm__danger">Удалить</button>
+      </form>
+    </footer>
+  </article>
+</dialog>
 {{end}}
 {{end}}
 
@@ -53,7 +68,9 @@
         <td>
           <form method="post" action="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" class="row-action"
             hx-post="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" hx-target="#teams"
-            hx-confirm="Удалить команду «{{.TeamName}}» из игры?" hx-disable="find button">
+            hx-confirm="Удалить команду «{{.TeamName}}» из игры?" hx-disable="find button"
+            data-confirm-text="Команда пропадёт из списка участников, вернуть её отсюда не получится.
+              {{- if and (le .Number $.MainAmount) $.FirstReserve}} Её место в основе займёт «{{$.FirstReserve}}» из резерва.{{end}}">
             <button type="submit" class="icon-button" title="Удалить команду" aria-label="Удалить команду «{{.TeamName}}»">
               {{/* mdi-delete, тот же значок, что был в прежнем фронте */}}
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12Z"/></svg>

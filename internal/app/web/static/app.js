@@ -37,3 +37,33 @@
   // после htmx-свапа в разметке может появиться новый отсчёт
   document.addEventListener("htmx:after:swap", tick);
 })();
+
+// Подтверждение перед удалением (hx-confirm) своим окном вместо системного window.confirm.
+// Вопрос берётся из hx-confirm, пояснение — из data-confirm-text того же элемента.
+// Если окна на странице нет, htmx спросит как обычно, через window.confirm.
+(() => {
+  document.addEventListener("htmx:confirm", (event) => {
+    const dialog = document.getElementById("confirm-dialog");
+    if (!dialog) {
+      return;
+    }
+    event.preventDefault();
+
+    const { ctx, issueRequest, dropRequest } = event.detail;
+    document.getElementById("confirm-title").textContent = ctx.confirm;
+    document.getElementById("confirm-text").textContent = ctx.sourceElement.dataset.confirmText ?? "";
+    // Esc и клик мимо окна закрывают его с пустым returnValue — это отмена
+    dialog.returnValue = "";
+    dialog.addEventListener("close", () => (dialog.returnValue === "confirm" ? issueRequest() : dropRequest()), {
+      once: true,
+    });
+    dialog.showModal();
+  });
+
+  // клик по затемнению вокруг окна приходит в сам dialog, внутренности окна его не задевают
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLDialogElement && event.target.id === "confirm-dialog") {
+      event.target.close();
+    }
+  });
+})();

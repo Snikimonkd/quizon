@@ -34,7 +34,7 @@ func main() {
 
 	server := config.NewServer(webUI.Routes)
 
-	logger.Infof("starting server on port: %v", server.Addr)
+	logger.Infof("starting server on %v", server.Addr)
 	err = server.ListenAndServe()
 	if err != nil {
 		logger.Fatalf("can't start server: %v", err)

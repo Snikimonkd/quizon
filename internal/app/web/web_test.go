@@ -650,6 +650,38 @@ func TestTeamsPage(t *testing.T) {
 	}
 }
 
+func TestTeamsConfirmDialog(t *testing.T) {
+	t.Parallel()
+
+	const (
+		gone     = "Команда пропадёт из списка участников, вернуть её отсюда не получится."
+		takeover = " Её место в основе займёт «Третьи» из резерва."
+	)
+
+	rec := do(t, teamsRouter(t), request{method: http.MethodGet, path: teamsPath, admin: true})
+	body := rec.Body.String()
+	assertContains(t, body,
+		`<dialog id="confirm-dialog"`,
+		`<button value="cancel" class="confirm__cancel" autofocus>Отмена</button>`,
+		// третья команда сама в резерве, на её место никто не придёт
+		`data-confirm-text="`+gone+`"`,
+	)
+	// первые две в основе: про первую команду резерва говорится у обеих
+	if got := strings.Count(body, `data-confirm-text="`+gone+takeover+`"`); got != 2 {
+		t.Errorf("teams with reserve takeover = %d, want 2", got)
+	}
+}
+
+func TestTeamsConfirmWithoutReserve(t *testing.T) {
+	t.Parallel()
+
+	uc := teamsUsecase()
+	uc.game.MainAmount = 3
+
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	assertNotContains(t, rec.Body.String(), "из резерва")
+}
+
 func TestTeamsExport(t *testing.T) {
 	t.Parallel()
 
@@ -777,9 +809,9 @@ func TestDeleteTeam(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	// htmx получает только содержимое #teams с обновлённым списком
+	// htmx получает только содержимое #teams с обновлённым списком, окно подтверждения остаётся на странице
 	assertContains(t, body, "Команд: 2", "Первые", "Третьи")
-	assertNotContains(t, body, "<!doctype html>", "<h1>", "Вторые")
+	assertNotContains(t, body, "<!doctype html>", "<h1>", "Вторые", "confirm-dialog")
 	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
 		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
 	}
@@ -827,4 +859,60 @@ func TestDeleteTeamRejected(t *testing.T) {
 	if len(uc.gotDeleted) != 0 {
 		t.Errorf("nothing must be deleted, got %v", uc.gotDeleted)
 	}
+}
+
+func TestParsePagesChecksTemplates(t *testing.T) {
+	t.Parallel()
+
+	tmpl := func(text string) *fstest.MapFile { return &fstest.MapFile{Data: []byte(text)} }
+	pagesFS := func() fstest.MapFS {
+		fsys := fstest.MapFS{
+			"templates/layout.html":   tmpl(`{{define "layout"}}{{template "content" .}}{{end}}`),
+			"templates/partials.html": tmpl(``),
+		}
+		for _, p := range allPages {
+			fsys[p.templatePath()] = tmpl(`{{define "content"}}` + string(p) + `{{end}}`)
+		}
+
+		return fsys
+	}
+
+	_, err := parsePages(pagesFS(), assets{})
+	if err != nil {
+		t.Fatalf("all pages present: %v", err)
+	}
+
+	missing := pagesFS()
+	delete(missing, pageTeams.templatePath())
+	_, err = parsePages(missing, assets{})
+	if err == nil {
+		t.Error("missing template must be an error")
+	}
+
+	extra := pagesFS()
+	extra["templates/pages/forgotten.html"] = tmpl(`{{define "content"}}{{end}}`)
+	_, err = parsePages(extra, assets{})
+	if err == nil || !strings.Contains(err.Error(), "forgotten.html") {
+		t.Errorf("template without page constant must be an error, got %v", err)
+	}
+}
+
+func TestPageTitles(t *testing.T) {
+	t.Parallel()
+
+	seen := make(map[pageTitle]page, len(allPages))
+	for _, p := range allPages {
+		title := p.title()
+		if title == "" {
+			t.Errorf("page %s has no title", p)
+		}
+		if other, ok := seen[title]; ok {
+			t.Errorf("pages %s and %s have the same title %q", other, p, title)
+		}
+		seen[title] = p
+	}
+
+	// заголовок попадает во вкладку браузера
+	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
+	assertContains(t, rec.Body.String(), "<title>Вход — КвизON</title>")
 }

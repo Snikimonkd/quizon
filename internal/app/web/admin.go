@@ -157,7 +157,7 @@ func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
 		MainAmount:    defaultMainAmount,
 		ReserveAmount: defaultReserveAmount,
 	}
-	wb.renderPage(w, http.StatusOK, "game_new", wb.layout(r, "Новая игра", gameFormView{Fields: form.fields(nil)}))
+	wb.renderPage(w, r, http.StatusOK, pageGameNew, gameFormView{Fields: form.fields(nil)})
 }
 
 func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +166,7 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 	errs := form.validate()
 	if len(errs) > 0 {
 		view := gameFormView{Fields: form.fields(errs)}
-		wb.renderPage(w, http.StatusUnprocessableEntity, "game_new", wb.layout(r, "Новая игра", view))
+		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, view)
 		return
 	}
 
@@ -189,6 +189,15 @@ type teamsView struct {
 // ReserveStart - номер первой команды в резерве
 func (v teamsView) ReserveStart() int64 {
 	return v.MainAmount + 1
+}
+
+// FirstReserve - первая команда резерва: она займёт место команды, удалённой из основы. Пусто, если резерва нет
+func (v teamsView) FirstReserve() string {
+	if int64(len(v.Teams)) <= v.MainAmount {
+		return ""
+	}
+
+	return v.Teams[v.MainAmount].TeamName
 }
 
 func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
@@ -216,7 +225,7 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderPage(w, http.StatusOK, "teams", wb.layout(r, "Участники", view))
+	wb.renderPage(w, r, http.StatusOK, pageTeams, view)
 }
 
 // deleteTeam - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются
@@ -249,5 +258,5 @@ func (wb *Web) deleteTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderBlock(w, http.StatusOK, "teams", "teams", view)
+	wb.renderBlock(w, http.StatusOK, pageTeams, "teams", view)
 }
