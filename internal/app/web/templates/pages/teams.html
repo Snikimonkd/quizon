@@ -5,48 +5,67 @@
     <h1>Участники</h1>
     <p>{{.Game.Name}}, КвизON №{{.Game.ID}}, {{ruDateTime .Game.StartTime}}</p>
   </hgroup>
-  <div class="teams-bar">
-    <p>Команд: {{len .Teams}}</p>
-    {{if .Teams}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
+  <div id="teams">
+    {{template "teams" .}}
   </div>
-  {{if .Teams}}
-  <div class="overflow-auto">
-    <table class="striped">
-      <thead>
-        <tr>
-          <th scope="col">№</th>
-          <th scope="col">Состав</th>
-          <th scope="col">Команда</th>
-          <th scope="col">Telegram</th>
-          <th scope="col">ID команды</th>
-          <th scope="col">Капитан</th>
-          <th scope="col">Группа</th>
-          <th scope="col">Телефон</th>
-          <th scope="col">Участников</th>
-          <th scope="col">Зарегистрировались</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{range .Teams}}
-        <tr{{if gt .Number $.Page.MainAmount}} class="is-reserve"{{end}}>
-          <td>{{.Number}}</td>
-          <td>{{squad .Number $.Page.MainAmount}}</td>
-          <td>{{.TeamName}}</td>
-          <td>{{.Telegram}}</td>
-          <td>{{deref .TeamID}}</td>
-          <td>{{.CaptainName}}</td>
-          <td>{{deref .GroupName}}</td>
-          <td class="nowrap">{{.Phone}}</td>
-          <td>{{.PlayersAmount}}</td>
-          <td class="nowrap">{{fullTime .CreatedAt}}</td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{else}}
-  <p>Пока никто не зарегистрировался.</p>
-  {{end}}
 </section>
+{{end}}
+{{end}}
+
+{{/* Содержимое #teams: счётчик и таблица. После удаления команды htmx заменяет его целиком */}}
+{{define "teams"}}
+<div class="teams-bar">
+  <p>Команд: {{len .Teams}}</p>
+  {{if .Teams}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
+</div>
+{{if .Teams}}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">№</th>
+        <th scope="col">Команда</th>
+        <th scope="col">Telegram</th>
+        <th scope="col">ID команды</th>
+        <th scope="col">Капитан</th>
+        <th scope="col">Группа</th>
+        <th scope="col">Телефон</th>
+        <th scope="col">Участников</th>
+        <th scope="col">Зарегистрировались</th>
+        <th scope="col"><span class="visually-hidden">Удаление</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Teams}}
+      {{/* первая команда резерва отделена от основы линией сверху */}}
+      <tr
+        {{- if eq .Number $.ReserveStart}} class="is-reserve reserve-start"
+        {{- else if gt .Number $.MainAmount}} class="is-reserve"{{end}}>
+        <td>{{if eq .Number $.ReserveStart}}<span class="visually-hidden">Дальше резерв. </span>{{end}}{{.Number}}</td>
+        <td>{{.TeamName}}</td>
+        <td>{{.Telegram}}</td>
+        <td>{{deref .TeamID}}</td>
+        <td>{{.CaptainName}}</td>
+        <td>{{deref .GroupName}}</td>
+        <td class="nowrap">{{.Phone}}</td>
+        <td>{{.PlayersAmount}}</td>
+        <td class="nowrap">{{fullTime .CreatedAt}}</td>
+        <td>
+          <form method="post" action="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" class="row-action"
+            hx-post="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" hx-target="#teams"
+            hx-confirm="Удалить команду «{{.TeamName}}» из игры?" hx-disable="find button">
+            <button type="submit" class="icon-button" title="Удалить команду" aria-label="Удалить команду «{{.TeamName}}»">
+              {{/* mdi-delete, тот же значок, что был в прежнем фронте */}}
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12Z"/></svg>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<p>Пока никто не зарегистрировался.</p>
 {{end}}
 {{end}}

@@ -28,6 +28,7 @@ type gamesTable struct {
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
+	DefaultColumns postgres.ColumnList
 }
 
 type GamesTable struct {
@@ -75,6 +76,7 @@ func newGamesTableImpl(schemaName, tableName, alias string) gamesTable {
 		RegistrationOpenTimeColumn = postgres.TimestampzColumn("registration_open_time")
 		allColumns                 = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserveAmountColumn, RegistrationOpenTimeColumn}
 		mutableColumns             = postgres.ColumnList{IDColumn, CreatedAtColumn, StartTimeColumn, LocationColumn, NameColumn, MainAmountColumn, ReserveAmountColumn, RegistrationOpenTimeColumn}
+		defaultColumns             = postgres.ColumnList{IDColumn}
 	)
 
 	return gamesTable{
@@ -92,5 +94,6 @@ func newGamesTableImpl(schemaName, tableName, alias string) gamesTable {
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
+		DefaultColumns: defaultColumns,
 	}
 }

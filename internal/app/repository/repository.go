@@ -72,7 +72,8 @@ func (r repository) RegistrationsAmount(ctx context.Context, gameID int64) (int6
 	stmt := table.Registrations.SELECT(
 		postgres.COUNT(postgres.STAR),
 	).WHERE(
-		table.Registrations.GameID.EQ(postgres.Int64(gameID)),
+		table.Registrations.GameID.EQ(postgres.Int64(gameID)).
+			AND(table.Registrations.DeletedAt.IS_NULL()),
 	)
 
 	query, args := stmt.Sql()
@@ -115,9 +116,11 @@ func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]mode
 	stmt := table.Registrations.SELECT(
 		table.Registrations.AllColumns,
 	).WHERE(
-		table.Registrations.GameID.EQ(postgres.Int64(gameID)),
+		table.Registrations.GameID.EQ(postgres.Int64(gameID)).
+			AND(table.Registrations.DeletedAt.IS_NULL()),
 	).ORDER_BY(
 		table.Registrations.CreatedAt.ASC(),
+		table.Registrations.ID.ASC(),
 	)
 
 	query, args := stmt.Sql()
@@ -131,6 +134,7 @@ func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]mode
 	for rows.Next() {
 		var buf model.Registrations
 		rErr := rows.Scan(
+			&buf.ID,
 			&buf.GameID,
 			&buf.CreatedAt,
 			&buf.TeamName,
@@ -140,6 +144,7 @@ func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]mode
 			&buf.PlayersAmount,
 			&buf.GroupName,
 			&buf.TeamID,
+			&buf.DeletedAt,
 		)
 
 		if rErr != nil {
@@ -175,7 +180,7 @@ func (r repository) GetRegistrationsAmount(
     FROM games g JOIN (
         SELECT $1::bigint AS game_id, COALESCE(COUNT(1), 0) AS cnt
         FROM registrations
-        WHERE game_id = $1::bigint
+        WHERE game_id = $1::bigint AND deleted_at IS NULL
     ) r
     ON g.id = r.game_id;
     `
@@ -190,8 +195,9 @@ func (r repository) GetRegistrationsAmount(
 }
 
 func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.Registrations) error {
+	// id выдаёт база, новая регистрация удалённой не бывает
 	stmt := table.Registrations.INSERT(
-		table.Registrations.AllColumns,
+		table.Registrations.AllColumns.Except(table.Registrations.ID, table.Registrations.DeletedAt),
 	).MODEL(
 		in,
 	)
@@ -200,6 +206,36 @@ func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.
 	_, err := tx.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("can't insert into registrations: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteRegistration - помечает регистрацию удалённой. ErrNotFound, если её нет в этой игре или она уже удалена.
+func (r repository) DeleteRegistration(
+	ctx context.Context,
+	tx pgx.Tx,
+	gameID int64,
+	registrationID int64,
+	deletedAt time.Time,
+) error {
+	stmt := table.Registrations.UPDATE(
+		table.Registrations.DeletedAt,
+	).SET(
+		postgres.TimestampzT(deletedAt),
+	).WHERE(
+		table.Registrations.ID.EQ(postgres.Int64(registrationID)).
+			AND(table.Registrations.GameID.EQ(postgres.Int64(gameID))).
+			AND(table.Registrations.DeletedAt.IS_NULL()),
+	)
+
+	query, args := stmt.Sql()
+	tag, err := tx.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("can't delete registration: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
 	}
 
 	return nil
@@ -217,6 +253,7 @@ func (r repository) ListGames(ctx context.Context, page int64, perPage int64) ([
     FROM games g LEFT JOIN (
         SELECT game_id, COUNT(1) AS cnt
         FROM registrations
+        WHERE deleted_at IS NULL
         GROUP BY game_id
     ) r
     ON g.id = r.game_id

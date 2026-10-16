@@ -22,6 +22,7 @@ type adminsTable struct {
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
+	DefaultColumns postgres.ColumnList
 }
 
 type AdminsTable struct {
@@ -63,6 +64,7 @@ func newAdminsTableImpl(schemaName, tableName, alias string) adminsTable {
 		PasswordColumn = postgres.StringColumn("password")
 		allColumns     = postgres.ColumnList{LoginColumn, PasswordColumn}
 		mutableColumns = postgres.ColumnList{LoginColumn, PasswordColumn}
+		defaultColumns = postgres.ColumnList{}
 	)
 
 	return adminsTable{
@@ -74,5 +76,6 @@ func newAdminsTableImpl(schemaName, tableName, alias string) adminsTable {
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
+		DefaultColumns: defaultColumns,
 	}
 }

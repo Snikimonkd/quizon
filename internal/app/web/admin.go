@@ -1,6 +1,8 @@
 package web
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,6 +12,7 @@ import (
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/utils"
 
+	"github.com/go-chi/chi/v5"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -17,8 +20,10 @@ import (
 const datetimeLocal string = "2006-01-02T15:04"
 
 const (
-	defaultGameName     string = "Бауманская лига"
-	defaultGameLocation string = "МГТУ им. Н.Э.Баумана ауд. 345"
+	defaultGameName      string = "Бауманская лига"
+	defaultGameLocation  string = "МГТУ им. Н.Э.Баумана ауд. 345"
+	defaultMainAmount    string = "20"
+	defaultReserveAmount string = "10"
 )
 
 type gameForm struct {
@@ -128,11 +133,11 @@ func (f gameForm) fields(errs map[string]string) []field {
 		},
 		{
 			Name: "main_amount", Label: "Команд в основном составе", Type: inputNumber, Value: f.MainAmount,
-			InputMode: inputModeNumeric, Min: "1", Placeholder: "30", Required: true, Error: errs["MainAmount"],
+			InputMode: inputModeNumeric, Min: "1", Required: true, Error: errs["MainAmount"],
 		},
 		{
 			Name: "reserve_amount", Label: "Команд в резерве", Type: inputNumber, Value: f.ReserveAmount,
-			InputMode: inputModeNumeric, Min: "0", Placeholder: "5", Error: errs["ReserveAmount"],
+			InputMode: inputModeNumeric, Min: "0", Error: errs["ReserveAmount"],
 		},
 		{
 			Name: "registration_open_time", Label: "Открытие регистрации", Type: inputDateTime,
@@ -146,7 +151,12 @@ type gameFormView struct {
 }
 
 func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
-	form := gameForm{Name: defaultGameName, Location: defaultGameLocation, ReserveAmount: "0"}
+	form := gameForm{
+		Name:          defaultGameName,
+		Location:      defaultGameLocation,
+		MainAmount:    defaultMainAmount,
+		ReserveAmount: defaultReserveAmount,
+	}
 	wb.renderPage(w, http.StatusOK, "game_new", wb.layout(r, "Новая игра", gameFormView{Fields: form.fields(nil)}))
 }
 
@@ -176,6 +186,11 @@ type teamsView struct {
 	MainAmount int64
 }
 
+// ReserveStart - номер первой команды в резерве
+func (v teamsView) ReserveStart() int64 {
+	return v.MainAmount + 1
+}
+
 func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
@@ -202,4 +217,37 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wb.renderPage(w, http.StatusOK, "teams", wb.layout(r, "Участники", view))
+}
+
+// deleteTeam - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются
+func (wb *Web) deleteTeam(w http.ResponseWriter, r *http.Request) {
+	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	teamID, err := strconv.ParseInt(chi.URLParam(r, "teamID"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// ErrNotFound - команду уже удалили, например двойным нажатием: просто показываем актуальный список
+	err = wb.usecase.DeleteRegistration(r.Context(), gameID, teamID)
+	if err != nil && !errors.Is(err, usecase.ErrNotFound) {
+		wb.serverError(w, err)
+		return
+	}
+
+	if !isHTMX(r) {
+		redirect(w, r, fmt.Sprintf("/admin/games/%d/teams", gameID))
+		return
+	}
+
+	view, ok := wb.listTeams(w, r)
+	if !ok {
+		return
+	}
+
+	wb.renderBlock(w, http.StatusOK, "teams", "teams", view)
 }
