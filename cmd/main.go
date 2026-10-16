@@ -4,16 +4,12 @@ import (
 	"context"
 	"net/http"
 
-	"quizon/internal/app/delivery"
-	"quizon/internal/app/delivery/api"
 	"quizon/internal/app/repository"
 	"quizon/internal/app/usecase"
+	"quizon/internal/app/web"
 	"quizon/internal/config"
 	"quizon/internal/pkg/cache"
 	"quizon/internal/pkg/logger"
-	"quizon/openapi"
-
-	swaggerui "quizon/swagger-ui"
 )
 
 func main() {
@@ -31,15 +27,12 @@ func main() {
 	repository := repository.NewRepository(db)
 	usecase := usecase.NewUsecase(repository, cookieCache)
 
-	strictServer := delivery.New(usecase)
-	authMiddleware := delivery.NewCheckCookieMiddleware(cookieCache)
+	webUI, err := web.New(usecase, cookieCache)
+	if err != nil {
+		logger.Fatalf("can't init web ui: %v", err)
+	}
 
-	strictHandler := api.NewStrictHandler(
-		&strictServer,
-		[]api.StrictMiddlewareFunc{delivery.LogErrors, authMiddleware.CheckCookie},
-	)
-
-	server := config.NewServer(strictHandler, swaggerui.SwaggerContent, openapi.OpenapiContent)
+	server := config.NewServer(webUI.Routes)
 
 	logger.Infof("starting server on port: %v", server.Addr)
 	err = server.ListenAndServe()

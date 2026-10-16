@@ -1,0 +1,20 @@
+{{define "content"}}
+{{with .Page}}
+<section class="sheet narrow">
+  <hgroup>
+    <h1>Вход</h1>
+    <p>Для организаторов игр</p>
+  </hgroup>
+  <form method="post" action="/login">
+    {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+    <label for="f-login">Логин</label>
+    <input id="f-login" name="login" value="{{.Login}}" autocomplete="username" autocapitalize="none" required
+      {{- if .Error}} aria-invalid="true"{{end}}>
+    <label for="f-password">Пароль</label>
+    <input id="f-password" name="password" type="password" autocomplete="current-password" required
+      {{- if .Error}} aria-invalid="true"{{end}}>
+    <button type="submit">Войти</button>
+  </form>
+</section>
+{{end}}
+{{end}}

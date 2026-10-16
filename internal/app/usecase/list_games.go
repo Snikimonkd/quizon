@@ -3,44 +3,35 @@ package usecase
 import (
 	"context"
 
-	"quizon/internal/app/delivery/api"
 	"quizon/internal/app/repository"
+	"quizon/internal/generated/postgres/public/model"
 )
 
 type ListGamesRepository interface {
 	ListGames(ctx context.Context, page int64, perPage int64) ([]repository.GameWithRegistrations, error)
 }
 
-func (u usecase) ListGames(ctx context.Context, page int64, perPage int64) (api.GetGamesResponseObject, error) {
+// GameListItem - игра и статус регистрации на неё
+type GameListItem struct {
+	model.Games
+
+	Status RegistrationStatus
+}
+
+// ListGames - список игр, новые сверху
+func (u usecase) ListGames(ctx context.Context, page int64, perPage int64) ([]GameListItem, error) {
 	games, err := u.repository.ListGames(ctx, page, perPage)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]api.ListGamesItem, 0, len(games))
+	ret := make([]GameListItem, 0, len(games))
 	for _, v := range games {
-		var status api.RegistrationStatus
-		if v.RegistrationsAmount >= v.MainAmount+v.ReserveAmount {
-			status = api.Closed
-		}
-		if v.RegistrationsAmount >= v.MainAmount && v.RegistrationsAmount < v.MainAmount+v.ReserveAmount {
-			status = api.Reserve
-		}
-		if v.RegistrationsAmount < v.MainAmount {
-			status = api.Ok
-		}
-
-		ret = append(ret, api.ListGamesItem{
-			Id:                   v.ID,
-			StartTime:            v.StartTime,
-			Location:             v.Location,
-			Name:                 v.Name,
-			MainAmount:           v.MainAmount,
-			ReserveAmount:        v.ReserveAmount,
-			RegistrationOpenTime: v.RegistrationOpenTime,
-			RegistrationStatus:   status,
+		ret = append(ret, GameListItem{
+			Games:  v.Games,
+			Status: registrationStatus(v.RegistrationsAmount, v.MainAmount, v.ReserveAmount),
 		})
 	}
 
-	return api.GetGames200JSONResponse(ret), nil
+	return ret, nil
 }

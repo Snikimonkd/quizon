@@ -9,6 +9,7 @@ import (
 // Repository - интерфейс инкапсулирующий в себе все репозитории
 type Repository interface {
 	ListGamesRepository
+	GetGameRepository
 	ListRegistrationsRepository
 
 	RegisterRepository

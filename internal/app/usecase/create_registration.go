@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"quizon/internal/app/delivery/api"
 	"quizon/internal/generated/postgres/public/model"
 )
 
@@ -20,71 +19,38 @@ type RegisterRepository interface {
 	CreateRegistration(ctx context.Context, tx pgx.Tx, in model.Registrations) error
 }
 
-func (u usecase) CreateRegistration(
-	ctx context.Context,
-	req api.PostRegistrationRequestObject,
-) (api.PostRegistrationResponseObject, error) {
+// CreateRegistration - регистрирует команду на игру. Если мест нет, возвращает StatusClosed и ничего не сохраняет.
+func (u usecase) CreateRegistration(ctx context.Context, in model.Registrations) (RegistrationStatus, error) {
 	now := u.clock.Now()
-	dbModel := model.Registrations{
-		GameID:        req.Body.GameId,
-		CreatedAt:     now,
-		TeamName:      req.Body.TeamName,
-		CaptainName:   req.Body.CaptainName,
-		Phone:         req.Body.Phone,
-		Telegram:      req.Body.Telegram,
-		PlayersAmount: req.Body.PlayersAmount,
-		GroupName:     req.Body.GroupName,
-		TeamID:        req.Body.TeamId,
-	}
+	in.CreatedAt = now
 
-	var status api.RegistrationStatus
+	var status RegistrationStatus
 
 	err := u.repository.Transactional(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		txErr := u.repository.LockGame(ctx, tx, req.Body.GameId)
+		txErr := u.repository.LockGame(ctx, tx, in.GameID)
 		if txErr != nil {
 			return txErr
 		}
 
-		amount, reserve, registrationOpenTime, cnt, txErr := u.repository.GetRegistrationsAmount(
-			ctx,
-			tx,
-			req.Body.GameId,
-		)
+		amount, reserve, registrationOpenTime, cnt, txErr := u.repository.GetRegistrationsAmount(ctx, tx, in.GameID)
 		if txErr != nil {
 			return txErr
 		}
 
-		if time.Now().Before(registrationOpenTime) {
+		if now.Before(registrationOpenTime) {
 			return ErrNotOpenedYet
 		}
 
-		if amount+reserve <= cnt {
-			status = api.Closed
+		status = registrationStatus(cnt, amount, reserve)
+		if status == StatusClosed {
 			return nil
 		}
 
-		status = api.Ok
-		if cnt >= amount {
-			status = api.Reserve
-		}
-
-		txErr = u.repository.CreateRegistration(ctx, tx, dbModel)
-		if txErr != nil {
-			return txErr
-		}
-
-		return nil
+		return u.repository.CreateRegistration(ctx, tx, in)
 	})
-	if errors.Is(err, ErrNotOpenedYet) {
-		return api.PostRegistration400JSONResponse{
-			Error: err.Error(),
-		}, nil
-	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return api.PostRegistration200JSONResponse{
-		Status: status,
-	}, nil
+	return status, nil
 }
