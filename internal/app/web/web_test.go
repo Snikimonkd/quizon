@@ -494,6 +494,15 @@ func TestAdminRequiresLogin(t *testing.T) {
 		`name="main_amount" type="number" value="20"`,
 		`name="reserve_amount" type="number" value="10"`,
 	)
+
+	// открытие регистрации идёт сразу за временем игры
+	body := rec.Body.String()
+	start := strings.Index(body, `name="start_time"`)
+	open := strings.Index(body, `name="registration_open_time"`)
+	location := strings.Index(body, `name="location"`)
+	if start < 0 || open < start || location < open {
+		t.Errorf("fields order: start_time=%d, registration_open_time=%d, location=%d", start, open, location)
+	}
 }
 
 func loginForm(password string) url.Values {

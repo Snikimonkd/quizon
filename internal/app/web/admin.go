@@ -128,6 +128,10 @@ func (f gameForm) fields(errs map[string]string) []field {
 			Hint: "По Москве", Required: true, Error: errs["StartTime"],
 		},
 		{
+			Name: "registration_open_time", Label: "Открытие регистрации", Type: inputDateTime,
+			Value: f.RegistrationOpenTime, Hint: "По Москве", Required: true, Error: errs["RegistrationOpenTime"],
+		},
+		{
 			Name: "location", Label: "Место проведения", Type: inputText, Value: f.Location,
 			Required: true, Error: errs["Location"],
 		},
@@ -138,10 +142,6 @@ func (f gameForm) fields(errs map[string]string) []field {
 		{
 			Name: "reserve_amount", Label: "Команд в резерве", Type: inputNumber, Value: f.ReserveAmount,
 			InputMode: inputModeNumeric, Min: "0", Error: errs["ReserveAmount"],
-		},
-		{
-			Name: "registration_open_time", Label: "Открытие регистрации", Type: inputDateTime,
-			Value: f.RegistrationOpenTime, Hint: "По Москве", Required: true, Error: errs["RegistrationOpenTime"],
 		},
 	}
 }
