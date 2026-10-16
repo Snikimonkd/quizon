@@ -15,8 +15,7 @@ var (
 	s  sync.Once
 )
 
-//nolint:gosec // local test database credentials
-const dsn string = `postgres://postgres:some_password@localhost:5432/postgres?sslmode=disable`
+const dsn string = `postgres://postgres@localhost:5432/postgres?sslmode=disable`
 
 // ConnectToTestPostgres - подключиться к базе в тестах
 func ConnectToTestPostgres(ctx context.Context, t *testing.T) *pgxpool.Pool {

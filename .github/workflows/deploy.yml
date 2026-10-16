@@ -1,29 +1,30 @@
 name: deploy
 
 on:
-  workflow_run:
-    workflows: [ "migrate" ]
-    types: [ completed ]
-    branches: [ "main" ]
+  workflow_call:
+    inputs:
+      tag:
+        description: 'image tag (e.g. latest, 1.2.3, sha-<commit>)'
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag:
         description: 'image tag (e.g. latest, 1.2.3, sha-<commit>)'
+        type: string
         required: true
         default: latest
 
 permissions:
   contents: read
 
-concurrency: production
-
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    concurrency: production
     env:
       SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
-      IMAGE: snikimonk/quizon:${{ inputs.tag || format('sha-{0}', github.event.workflow_run.head_sha) }}
+      IMAGE: snikimonk/quizon:${{ inputs.tag }}
     steps:
       - name: set up ssh
         run: |
