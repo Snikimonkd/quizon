@@ -461,6 +461,11 @@ tr.is-reserve td {
   color: var(--q-muted);
 }
 
+/* граница между основным составом и резервом */
+tr.reserve-start > td {
+  border-top: 2px solid var(--q-gold);
+}
+
 /* Подвал */
 
 .site-footer {

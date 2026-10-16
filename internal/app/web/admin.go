@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
+
 	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/utils"
-
-	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 // datetimeLocal - формат значения <input type="datetime-local">

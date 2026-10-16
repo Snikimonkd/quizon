@@ -71,7 +71,7 @@ func (a assets) handler(static fs.FS) http.Handler {
 		}
 
 		// FileServer сам ответит 304 на If-None-Match, если ETag выставлен заранее
-		w.Header().Set("Etag", `"`+hash+`"`)
+		w.Header().Set("ETag", `"`+hash+`"`)
 		if r.URL.Query().Get("v") == hash {
 			w.Header().Set("Cache-Control", cacheImmutable)
 		} else {

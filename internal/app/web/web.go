@@ -164,7 +164,6 @@ func funcs(assets assets) template.FuncMap {
 			return t.Format(time.RFC3339)
 		},
 		"deref": lo.FromPtr[string],
-		"squad": squad,
 	}
 }
 

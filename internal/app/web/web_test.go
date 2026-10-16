@@ -589,8 +589,16 @@ func TestTeamsPage(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	assertContains(t, body, "Команд: 3", "Третьи", `class="is-reserve"`, "/admin/games/7/teams.xlsx")
-	if strings.Count(body, `class="is-reserve"`) != 1 {
+	assertContains(t, body,
+		"Команд: 3",
+		"Третьи",
+		"/admin/games/7/teams.xlsx",
+		// основной состав 2, третья команда первая в резерве: над ней линия
+		`<tr class="is-reserve reserve-start">`,
+		`<span class="visually-hidden">Дальше резерв. </span>3</td>`,
+	)
+	assertNotContains(t, body, "Состав")
+	if strings.Count(body, "is-reserve") != 1 {
 		t.Error("only the third team must be in reserve")
 	}
 }
