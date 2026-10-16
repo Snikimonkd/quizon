@@ -20,7 +20,7 @@
 {{define "game_card"}}
 <article class="ticket{{if eq .State "finished"}} ticket--past{{end}}">
   <header class="ticket__date">
-    <time datetime="{{iso .StartTime}}">{{ruDate .StartTime}}</time>
+    <time datetime="{{iso .StartTime}}">{{ruDate .StartTime}} <span class="ticket__time">{{hhmm .StartTime}}</span></time>
     <span>{{ruWeekday .StartTime}}</span>
   </header>
   <div class="ticket__body">

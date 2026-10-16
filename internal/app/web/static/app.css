@@ -290,21 +290,33 @@ hgroup > p:last-child {
   box-shadow: var(--pico-card-box-shadow);
 }
 
+/* «30 сентября 19:00» и «воскресенье» на узком телефоне в одну строку не влезают: тогда день недели уходит вниз */
 .ticket > .ticket__date {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  height: var(--band);
+  justify-content: space-around;
+  gap: 0 1rem;
+  min-height: var(--band);
   margin: 0;
-  padding: 0 1rem;
+  padding: 0.5rem 1rem;
   border: 0;
   background: none;
   color: var(--q-deep);
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  text-align: center;
   text-transform: uppercase;
+}
+
+.ticket__time {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 36rem) {
+  .ticket > .ticket__date {
+    font-size: 1.15rem;
+  }
 }
 
 .ticket__body {
@@ -424,13 +436,20 @@ a.ticket__cta:hover {
   width: auto;
 }
 
-table {
-  font-size: 0.9rem;
+/* плотнее, чем у Pico: на 14-дюймовом ноутбуке Pico даёт контейнеру 1200px и шрифт 20px,
+   и с его отступами ячеек десять колонок туда не влезали */
+.teams-table {
+  font-size: 0.85rem;
 }
 
-th {
+.teams-table th,
+.teams-table td {
+  padding: 0.5rem 0.6rem;
+}
+
+.teams-table th {
   color: var(--q-gold);
-  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .nowrap {
@@ -439,6 +458,11 @@ th {
 
 tr.is-reserve td {
   color: var(--q-muted);
+}
+
+/* удалённая команда: тусклее резерва, чтобы не путать с теми, кто ещё в игре */
+tr.is-deleted td {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .row-action {

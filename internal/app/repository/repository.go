@@ -112,12 +112,12 @@ func (r repository) GetGame(ctx context.Context, gameID int64) (model.Games, err
 	return res, nil
 }
 
+// ListRegistrations - все регистрации на игру в порядке подачи, удалённые тоже
 func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]model.Registrations, error) {
 	stmt := table.Registrations.SELECT(
 		table.Registrations.AllColumns,
 	).WHERE(
-		table.Registrations.GameID.EQ(postgres.Int64(gameID)).
-			AND(table.Registrations.DeletedAt.IS_NULL()),
+		table.Registrations.GameID.EQ(postgres.Int64(gameID)),
 	).ORDER_BY(
 		table.Registrations.CreatedAt.ASC(),
 		table.Registrations.ID.ASC(),

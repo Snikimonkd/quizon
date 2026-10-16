@@ -94,8 +94,10 @@ func (f *fakeUsecase) DeleteRegistration(_ context.Context, gameID int64, regist
 		return usecase.ErrNotFound
 	}
 	for i, team := range f.teams {
-		if team.ID == registrationID {
-			f.teams = append(f.teams[:i], f.teams[i+1:]...)
+		if team.ID == registrationID && !team.Deleted() {
+			deletedAt := testNow
+			f.teams[i].DeletedAt = &deletedAt
+			f.renumber()
 			f.gotDeleted = append(f.gotDeleted, registrationID)
 			return nil
 		}
@@ -110,6 +112,18 @@ func (f *fakeUsecase) Login(context.Context, string, string) (*http.Cookie, erro
 	}
 
 	return testCookie("new-token"), nil
+}
+
+// renumber - как в usecase: удалённая команда остаётся в списке без номера, остальные нумеруются по порядку
+func (f *fakeUsecase) renumber() {
+	var number int64
+	for i := range f.teams {
+		f.teams[i].Number = 0
+		if !f.teams[i].Deleted() {
+			number++
+			f.teams[i].Number = number
+		}
+	}
 }
 
 func testCookie(value string) *http.Cookie {
@@ -264,6 +278,8 @@ func TestHome(t *testing.T) {
 			"data-countdown",
 			"Игра завершена",
 			"18 октября",
+			// время начала рядом с датой в полосе билета
+			`18 октября <span class="ticket__time">12:00</span></time>`,
 			"воскресенье",
 			`href="/login"`,
 		)
@@ -654,7 +670,7 @@ func TestTeamsConfirmDialog(t *testing.T) {
 	t.Parallel()
 
 	const (
-		gone     = "Команда пропадёт из списка участников, вернуть её отсюда не получится."
+		gone     = "Команда потеряет место в игре и останется в списке серой, без номера. Вернуть её отсюда не получится."
 		takeover = " Её место в основе займёт «Третьи» из резерва."
 	)
 
@@ -810,10 +826,61 @@ func TestDeleteTeam(t *testing.T) {
 
 	body := rec.Body.String()
 	// htmx получает только содержимое #teams с обновлённым списком, окно подтверждения остаётся на странице
-	assertContains(t, body, "Команд: 2", "Первые", "Третьи")
-	assertNotContains(t, body, "<!doctype html>", "<h1>", "Вторые", "confirm-dialog")
+	assertContains(t, body, "Команд: 2", "Первые", "Вторые", "Третьи")
+	assertNotContains(t, body, "<!doctype html>", "<h1>", "confirm-dialog")
 	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
 		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
+	}
+}
+
+func deletedTeamUsecase(t *testing.T) *fakeUsecase {
+	t.Helper()
+
+	uc := teamsUsecase()
+	err := uc.DeleteRegistration(t.Context(), 7, 20)
+	if err != nil {
+		t.Fatalf("can't delete team: %v", err)
+	}
+
+	return uc
+}
+
+func TestTeamsPageDeleted(t *testing.T) {
+	t.Parallel()
+
+	rec := do(t, newTestRouter(t, deletedTeamUsecase(t)), request{method: http.MethodGet, path: teamsPath, admin: true})
+	body := rec.Body.String()
+	// «Вторые» удалены: строка на месте, серая, без номера и без корзины; «Третьи» поднялись в основу
+	assertContains(t, body,
+		"Команд: 2",
+		`<tr class="is-deleted" title="Команда удалена">`,
+		`<td><span class="visually-hidden">Удалена</span></td>`,
+		"<td>Вторые</td>",
+	)
+	assertNotContains(t, body, "is-reserve", `/teams/20/delete"`)
+	if got := strings.Count(body, "hx-post="); got != 2 {
+		t.Errorf("delete buttons = %d, want 2", got)
+	}
+}
+
+func TestTeamsExportSkipsDeleted(t *testing.T) {
+	t.Parallel()
+
+	h := newTestRouter(t, deletedTeamUsecase(t))
+	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
+
+	f, err := excelize.OpenReader(rec.Body)
+	if err != nil {
+		t.Fatalf("can't open xlsx: %v", err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+
+	rows, err := f.GetRows("Команды")
+	if err != nil {
+		t.Fatalf("can't read rows: %v", err)
+	}
+	if len(rows) != 3 || rows[1][2] != "Первые" || rows[2][0] != "2" || rows[2][2] != "Третьи" {
+		t.Errorf("export must contain only active teams: %v", rows)
 	}
 }
 
