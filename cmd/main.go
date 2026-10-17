@@ -41,7 +41,7 @@ func main() {
 		logger.Fatal("can't init delivery ui", err)
 	}
 
-	server := config.NewServer(delivery.Routes, debug)
+	server := config.NewServer(delivery, debug)
 
 	slog.Info("starting server", "addr", server.Addr)
 	err = server.ListenAndServe()

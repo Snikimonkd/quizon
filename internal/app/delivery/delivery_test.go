@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/go-chi/chi/v5"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/mock/gomock"
 
@@ -120,10 +119,7 @@ func newTestRouter(t *testing.T, uc *mock.MockUsecase) http.Handler {
 		t.Fatalf("can't create delivery: %v", err)
 	}
 
-	r := chi.NewRouter()
-	wb.Routes(r)
-
-	return r
+	return wb
 }
 
 type request struct {
