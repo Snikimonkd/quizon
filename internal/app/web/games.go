@@ -80,7 +80,7 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := wb.usecase.Now()
+	now := time.Now()
 	admin := wb.isAdmin(r)
 	view := homeView{Games: make([]gameView, 0, len(items))}
 	for _, item := range items {

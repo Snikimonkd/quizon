@@ -55,12 +55,3 @@ func TestLogout(t *testing.T) {
 		t.Error("session must end after logout")
 	}
 }
-
-func TestNow(t *testing.T) {
-	t.Parallel()
-
-	u := usecase{clock: mockClock(testNow)}
-	if got := u.Now(); !got.Equal(testNow) {
-		t.Errorf("Now = %v, want time from usecase clock %v", got, testNow)
-	}
-}

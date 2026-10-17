@@ -39,8 +39,6 @@ type Usecase interface {
 	Login(ctx context.Context, login, password string) (*http.Cookie, error)
 	CheckSession(token string) bool
 	Logout(token string)
-	// Now - время usecase: своё время веб не берёт
-	Now() time.Time
 }
 
 // Web - html-интерфейс сервиса
@@ -227,7 +225,7 @@ func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p 
 	data := layoutData{
 		Title: p.title(),
 		Admin: wb.isAdmin(r),
-		Year:  wb.usecase.Now().In(utils.LocMsk).Year(),
+		Year:  time.Now().In(utils.LocMsk).Year(),
 		Page:  view,
 	}
 

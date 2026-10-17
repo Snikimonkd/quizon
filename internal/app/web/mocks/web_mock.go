@@ -15,7 +15,6 @@ import (
 	usecase "quizon/internal/app/usecase"
 	model "quizon/internal/generated/postgres/public/model"
 	reflect "reflect"
-	time "time"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -386,44 +385,6 @@ func (c *MockUsecaseLogoutCall) Do(f func(string)) *MockUsecaseLogoutCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUsecaseLogoutCall) DoAndReturn(f func(string)) *MockUsecaseLogoutCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Now mocks base method.
-func (m *MockUsecase) Now() time.Time {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Now")
-	ret0, _ := ret[0].(time.Time)
-	return ret0
-}
-
-// Now indicates an expected call of Now.
-func (mr *MockUsecaseMockRecorder) Now() *MockUsecaseNowCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Now", reflect.TypeOf((*MockUsecase)(nil).Now))
-	return &MockUsecaseNowCall{Call: call}
-}
-
-// MockUsecaseNowCall wrap *gomock.Call
-type MockUsecaseNowCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUsecaseNowCall) Return(arg0 time.Time) *MockUsecaseNowCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUsecaseNowCall) Do(f func() time.Time) *MockUsecaseNowCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUsecaseNowCall) DoAndReturn(f func() time.Time) *MockUsecaseNowCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

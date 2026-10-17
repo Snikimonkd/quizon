@@ -217,7 +217,7 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 	}
 
 	return teamsView{
-		Game:          newGameView(game, wb.usecase.Now()),
+		Game:          newGameView(game, time.Now()),
 		Teams:         teams,
 		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return t.DeletedAt == nil }),
 		MainAmount:    game.MainAmount,

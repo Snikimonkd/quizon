@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"quizon/internal/app/usecase"
@@ -145,7 +146,7 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view := registerView{
-		Game:   newGameView(game, wb.usecase.Now()),
+		Game:   newGameView(game, time.Now()),
 		Fields: registrationForm{}.fields(nil),
 	}
 	view.Outcome = closedOutcome(view.Game)
@@ -163,7 +164,7 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := parseRegistrationForm(r)
-	view := registerView{Game: newGameView(game, wb.usecase.Now())}
+	view := registerView{Game: newGameView(game, time.Now())}
 
 	view.Outcome = closedOutcome(view.Game)
 	if view.Outcome != "" {

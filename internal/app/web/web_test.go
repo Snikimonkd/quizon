@@ -101,12 +101,10 @@ func testCookie(value string) *http.Cookie {
 	}
 }
 
-// newTestRouter - веб-интерфейс на моке uc. Часы и сессии у usecase: время в тестах стоит на testNow,
-// сессия админа одна — adminToken
+// newTestRouter - веб-интерфейс на моке uc. Сессия админа одна — adminToken
 func newTestRouter(t *testing.T, uc *mocks.MockUsecase) http.Handler {
 	t.Helper()
 
-	uc.EXPECT().Now().Return(testNow).AnyTimes()
 	uc.EXPECT().CheckSession(adminToken).Return(true).AnyTimes()
 
 	wb, err := New(uc)
@@ -237,8 +235,9 @@ func TestHome(t *testing.T) {
 			"data-countdown",
 			// у ожидающей игры внизу такая же плашка, погашенная, с отсчётом до открытия
 			`<p class="show__cta show__cta--off">Регистрация откроется <time class="countdown"`,
-			// до открытия час: без JS сервер пишет время словами, отсчёт включит app.js
-			`data-countdown>сегодня в 13:00</time></p>`,
+			// отсчёт идёт до открытия регистрации — через час после testNow. Словами время подписывает сервер
+			// по настоящим часам, эти подписи проверяет TestRuOpensAt
+			`<time class="countdown" datetime="2026-10-16T13:00:00`,
 			"Игра завершена",
 			// в углу вывески только дата и день недели, времени там нет
 			`<span class="show__day">18</span> <span class="show__month">октября</span></time>`+
@@ -512,7 +511,7 @@ func TestRegistrationPageStates(t *testing.T) {
 				"data-countdown",
 				`<div class="outcome outcome--waiting">`,
 				`<div role="status"><h2>Регистрация ещё не открыта</h2></div>`,
-				`data-countdown>сегодня в 13:00</time>.</p>`,
+				`<p>Она откроется <time class="countdown" datetime="2026-10-16T13:00:00`,
 			},
 		},
 		{
