@@ -30,6 +30,8 @@ const (
 	newGamePath  string = "/admin/games/new"
 	teamsPath    string = "/admin/games/7/teams"
 	adminLogin   string = "admin"
+	// locationFact - место игры в фактах карточки
+	locationFact string = "<dt>место</dt><dd>" + defaultGameLocation + "</dd>"
 )
 
 var testNow = time.Date(2026, time.October, 16, 12, 0, 0, 0, utils.LocMsk)
@@ -230,7 +232,7 @@ func testGame() model.Games {
 	return model.Games{
 		ID:                   7,
 		Name:                 defaultGameName,
-		Location:             "МГТУ им. Н.Э.Баумана ауд. 345",
+		Location:             defaultGameLocation,
 		StartTime:            testNow.Add(72 * time.Hour),
 		RegistrationOpenTime: testNow.Add(-time.Hour),
 		MainAmount:           2,
@@ -242,7 +244,7 @@ func listItem(id int64, start, open time.Time, status usecase.RegistrationStatus
 	return usecase.GameListItem{
 		ID:                   id,
 		Name:                 defaultGameName,
-		Location:             "ауд. 345",
+		Location:             defaultGameLocation,
 		StartTime:            start,
 		RegistrationOpenTime: open,
 		Status:               status,
@@ -282,7 +284,7 @@ func TestHome(t *testing.T) {
 			`<span class="show__day">18</span> <span class="show__month">октября</span></time>`+
 				` <span class="show__weekday">воскресенье</span></p>`,
 			// время начала — в фактах на месте «с команды», рядом место
-			`<dt>место</dt><dd>ауд. 345</dd>`,
+			locationFact,
 			`<dt>начало игры</dt><dd>12:00</dd>`,
 			// лампы вывески включает класс состояния
 			`class="show show--open"`,
@@ -511,7 +513,7 @@ func TestRegistrationPageStates(t *testing.T) {
 			}
 
 			body := rec.Body.String()
-			assertContains(t, body, tt.wantText, tt.wantState, "<dt>место</dt><dd>МГТУ им. Н.Э.Баумана ауд. 345</dd>")
+			assertContains(t, body, tt.wantText, tt.wantState, locationFact)
 			if strings.Contains(body, `hx-post="`+registerPath+`"`) != tt.wantForm {
 				t.Errorf("form presence = %v, want %v", !tt.wantForm, tt.wantForm)
 			}
@@ -624,7 +626,7 @@ func TestCreateGame(t *testing.T) {
 
 	form := url.Values{
 		"name":                   {"Бауманская лига"},
-		"location":               {"ауд. 345"},
+		"location":               {defaultGameLocation},
 		"start_time":             {"2026-11-01T18:00"},
 		"registration_open_time": {"2026-10-25T12:00"},
 		"main_amount":            {"30"},

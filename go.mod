@@ -4,6 +4,7 @@ go 1.27
 
 require (
 	github.com/benbjohnson/clock v1.3.5
+	github.com/brianvoe/gofakeit/v7 v7.18.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-jet/jet/v2 v2.7.1
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
@@ -16,7 +17,6 @@ require (
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/brianvoe/gofakeit v3.18.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
