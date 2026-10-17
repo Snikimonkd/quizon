@@ -15,11 +15,13 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/go-chi/chi/v5"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/mock/gomock"
 
 	"quizon/internal/app/usecase"
+	usecasemock "quizon/internal/app/usecase/mock"
 	"quizon/internal/app/web/mock"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
@@ -64,7 +66,8 @@ func expectTeams(uc *mock.MockUsecase, game model.Games, teams []usecase.Registr
 	uc.EXPECT().ListRegistrations(gomock.Any(), game.ID).Return(teams, nil).AnyTimes()
 }
 
-// testTeams - три команды со случайными данными в порядке подачи. В testGame основа 2, так что третья в резерве
+// testTeams - три команды со случайными данными в порядке подачи, как их отдаёт usecase.
+// В testGame основа 2, так что третья — первая в резерве
 func testTeams() []usecase.Registration {
 	team := func(number int64) usecase.Registration {
 		reg := testsupport.FakeRegistration(7)
@@ -72,8 +75,10 @@ func testTeams() []usecase.Registration {
 
 		return usecase.Registration{Registrations: reg, Number: number}
 	}
+	teams := []usecase.Registration{team(1), team(2), team(3)}
+	teams[2].Reserve, teams[2].FirstReserve = true, true
 
-	return []usecase.Registration{team(1), team(2), team(3)}
+	return teams
 }
 
 // withSecondDeleted - те же команды после удаления второй (id 20), как их отдаёт usecase:
@@ -82,8 +87,9 @@ func withSecondDeleted(teams []usecase.Registration) []usecase.Registration {
 	res := slices.Clone(teams)
 	deletedAt := testNow
 	res[1].DeletedAt = &deletedAt
-	res[1].Number = 0
+	res[1].Deleted, res[1].Number = true, 0
 	res[2].Number = 2
+	res[2].Reserve, res[2].FirstReserve = false, false
 
 	return res
 }
@@ -422,13 +428,17 @@ func TestRegisterValidation(t *testing.T) {
 	form.Set("phone", "123")
 	form.Del("team_name")
 
-	// анкета с ошибками до usecase не доходит: CreateRegistration мок не ждёт.
+	// правила анкеты проверяет usecase, web показывает его нарушения у полей.
 	// У каждого подтеста свой мок: подтесты параллельные
 	newRouter := func(t *testing.T) http.Handler {
 		t.Helper()
 
 		uc := mockUsecase(t)
 		expectGame(uc, testGame(), usecase.StatusOk)
+		uc.EXPECT().CreateRegistration(gomock.Any(), gomock.Any()).Return("", usecase.ValidationError{
+			usecase.FieldPhone:    usecase.ErrBadPhone,
+			usecase.FieldTeamName: usecase.ErrRequired,
+		})
 
 		return newTestRouter(t, uc)
 	}
@@ -461,6 +471,69 @@ func TestRegisterValidation(t *testing.T) {
 		}
 		assertContains(t, rec.Body.String(), "<!doctype html>", "Укажите название команды")
 	})
+}
+
+// TestRegisterPlayersAmount - число участников web разбирает сам: без числа анкету не собрать,
+// и до usecase она не доходит
+func TestRegisterPlayersAmount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "empty", value: "", want: "Укажите, сколько человек придёт"},
+		{name: "not a number", value: "много", want: "Нужно число от 1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			uc := mockUsecase(t)
+			expectGame(uc, testGame(), usecase.StatusOk)
+			form := validRegistration()
+			form.Set("players_amount", tt.value)
+
+			rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: registerPath, form: form, htmx: true})
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d", rec.Code)
+			}
+			assertContains(t, rec.Body.String(), tt.want, `aria-invalid="true"`)
+		})
+	}
+}
+
+// TestRuleMessagesCoverUsecase - на каждое правило, которое нарушает настоящий usecase,
+// у поля формы есть своя подсказка, а не общая «Проверьте это поле»
+func TestRuleMessagesCoverUsecase(t *testing.T) {
+	t.Parallel()
+
+	// с нарушениями usecase до репозитория не доходит: мок ничего не ждёт
+	uc := usecase.NewUsecase(usecasemock.NewMockRepository(gomock.NewController(t)), nil, clock.NewMock())
+	covered := func(t *testing.T, messages ruleMessages, err error) {
+		t.Helper()
+
+		var invalid usecase.ValidationError
+		if !errors.As(err, &invalid) {
+			t.Fatalf("want ValidationError, got %v", err)
+		}
+		for field, rule := range invalid {
+			if _, ok := messages[field][rule]; !ok {
+				t.Errorf("no message for %s: %v", field, rule)
+			}
+		}
+	}
+
+	// пустая игра нарушает правила всех полей, кроме порядка времён и резерва: они во второй
+	for _, game := range []model.Games{{}, {StartTime: testNow, RegistrationOpenTime: testNow, ReserveAmount: -1}} {
+		_, err := uc.CreateGame(t.Context(), game)
+		covered(t, gameRuleMessages, err)
+	}
+	for _, reg := range []model.Registrations{{}, {Phone: "123"}} {
+		_, err := uc.CreateRegistration(t.Context(), reg)
+		covered(t, registrationRuleMessages, err)
+	}
 }
 
 func TestRegistrationPageStates(t *testing.T) {
@@ -746,14 +819,32 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("registration_open_time", "2026-11-02T12:00")
 
-		// порядок времён проверяет usecase, web показывает его ошибку у поля
+		// правила игры проверяет usecase, web показывает его нарушения у полей
 		uc := mockUsecase(t)
-		uc.EXPECT().CreateGame(gomock.Any(), gomock.Any()).Return(int64(0), usecase.ErrOpensAfterStart)
+		uc.EXPECT().CreateGame(gomock.Any(), gomock.Any()).Return(int64(0), usecase.ValidationError{
+			usecase.FieldRegistrationOpenTime: usecase.ErrOpensAfterStart,
+		})
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
 		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры", `aria-invalid="true"`)
+	})
+
+	t.Run("not a date", func(t *testing.T) {
+		t.Parallel()
+
+		bad := url.Values{}
+		maps.Copy(bad, form)
+		bad.Set("start_time", "завтра")
+
+		// дату web разбирает сам: без неё игру не собрать, и до usecase дело не доходит
+		req := request{method: http.MethodPost, path: newGamePath, form: bad, admin: true}
+		rec := do(t, newTestRouter(t, mockUsecase(t)), req)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d", rec.Code)
+		}
+		assertContains(t, rec.Body.String(), "Укажите дату и время", `aria-invalid="true"`)
 	})
 }
 
@@ -826,11 +917,14 @@ func TestTeamsConfirmDialog(t *testing.T) {
 func TestTeamsConfirmWithoutReserve(t *testing.T) {
 	t.Parallel()
 
+	// при трёх местах в основе все три команды в ней, резерва нет
 	game := testGame()
 	game.MainAmount = 3
+	teams := testTeams()
+	teams[2].Reserve, teams[2].FirstReserve = false, false
 
-	rec := do(t, teamsRouter(t, game, testTeams()), request{method: http.MethodGet, path: teamsPath, admin: true})
-	assertNotContains(t, rec.Body.String(), "из резерва")
+	rec := do(t, teamsRouter(t, game, teams), request{method: http.MethodGet, path: teamsPath, admin: true})
+	assertNotContains(t, rec.Body.String(), "из резерва", "is-reserve")
 }
 
 func TestTeamsExport(t *testing.T) {

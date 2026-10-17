@@ -68,7 +68,7 @@ make jet                                    # перегенерировать i
 ```
 cmd/                    точка входа
 internal/app/web        HTTP-обработчики, шаблоны (templates/) и статика (static/)
-internal/app/usecase    бизнес-логика: регистрация, места, удаление команд, вход; транзакции открывает сам, про HTTP не знает
+internal/app/usecase    бизнес-логика: правила игр и анкет, регистрация, места и резерв, удаление команд, вход
 internal/app/repository запросы к Postgres без бизнес-логики: каждый метод — один запрос
 internal/app/*/mock     моки gomock для тестов, генерирует make mocks
 internal/config         сервер, подключение к базе, журнал запросов

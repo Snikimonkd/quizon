@@ -26,9 +26,9 @@ import (
 //go:embed templates static
 var files embed.FS
 
-//go:generate go tool mockgen -typed -destination=mock/usecase_mock.go -package=mock . Usecase
-
 // Usecase - бизнес-логика, которую использует веб-интерфейс
+//
+//go:generate go tool mockgen -typed -destination=mock/usecase_mock.go -package=mock . Usecase
 type Usecase interface {
 	ListGames(ctx context.Context, page int64, perPage int64) ([]usecase.GameListItem, error)
 	GetGame(ctx context.Context, gameID int64) (usecase.GameListItem, error)

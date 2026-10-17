@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -9,20 +10,21 @@ import (
 
 	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
-	"quizon/internal/utils"
 )
 
 func TestListRegistrations(t *testing.T) {
 	t.Parallel()
 
-	// вторая команда удалена: остаётся на своём месте в списке, но номер не занимает
+	// в основе одно место; вторая команда удалена: остаётся на своём месте, но номер и место не занимает
 	deletedAt := testNow.Add(time.Hour)
 	regs := []model.Registrations{
 		{ID: 10, TeamName: "первые", CreatedAt: testNow},
 		{ID: 20, TeamName: "удалённые", CreatedAt: testNow.Add(time.Minute), DeletedAt: &deletedAt},
 		{ID: 30, TeamName: "третьи", CreatedAt: testNow.Add(2 * time.Minute)},
+		{ID: 40, TeamName: "четвёртые", CreatedAt: testNow.Add(3 * time.Minute)},
 	}
 	repo := mockRepository(t)
+	repo.EXPECT().GetGame(gomock.Any(), int64(7)).Return(model.Games{ID: 7, MainAmount: 1, ReserveAmount: 2}, nil)
 	repo.EXPECT().ListRegistrations(gomock.Any(), int64(7)).Return(regs, nil)
 	u := usecase.NewUsecase(repo, nil, mockClock(testNow))
 
@@ -30,25 +32,34 @@ func TestListRegistrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListRegistrations: %v", err)
 	}
-	want := []int64{1, 0, 2}
-	if len(got) != len(want) {
-		t.Fatalf("registrations = %d, want %d", len(got), len(want))
+	// порядок подачи и сами регистрации как есть; первая оставшаяся за основой — первая в резерве
+	want := []usecase.Registration{
+		{Registrations: regs[0], Number: 1},
+		{Registrations: regs[1], Deleted: true},
+		{Registrations: regs[2], Number: 2, Reserve: true, FirstReserve: true},
+		{Registrations: regs[3], Number: 3, Reserve: true},
 	}
-	for i, reg := range got {
-		// порядок подачи сохраняется
-		if reg.ID != regs[i].ID || reg.Number != want[i] {
-			t.Errorf("%s: id = %d, number = %d; want id %d, number %d",
-				reg.TeamName, reg.ID, reg.Number, regs[i].ID, want[i])
-		}
-		// время подачи переводится в московское, момент тот же
-		if reg.CreatedAt.Location() != utils.LocMsk || !reg.CreatedAt.Equal(regs[i].CreatedAt) {
-			t.Errorf("%s: created at %v, want %v in Moscow", reg.TeamName, reg.CreatedAt, regs[i].CreatedAt)
-		}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListRegistrations =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestListRegistrationsErrors(t *testing.T) {
+	t.Parallel()
+
+	// игры нет: регистрации не запрашиваются
+	repo := mockRepository(t)
+	repo.EXPECT().GetGame(gomock.Any(), int64(8)).Return(model.Games{}, usecase.ErrNotFound)
+	u := usecase.NewUsecase(repo, nil, mockClock(testNow))
+	_, err := u.ListRegistrations(t.Context(), 8)
+	if !errors.Is(err, usecase.ErrNotFound) {
+		t.Errorf("unknown game: err = %v, want ErrNotFound", err)
 	}
 
 	// ошибку репозитория отдаёт как есть
 	dbErr := errors.New("db is down")
 	repo = mockRepository(t)
+	repo.EXPECT().GetGame(gomock.Any(), int64(7)).Return(model.Games{ID: 7, MainAmount: 1}, nil)
 	repo.EXPECT().ListRegistrations(gomock.Any(), int64(7)).Return(nil, dbErr)
 	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
 	_, err = u.ListRegistrations(t.Context(), 7)

@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-//go:generate go tool mockgen -typed -destination=mock/repository_mock.go -package=mock . Repository
-
 // Repository - интерфейс инкапсулирующий в себе все репозитории
+//
+//go:generate go tool mockgen -typed -destination=mock/repository_mock.go -package=mock . Repository
 type Repository interface {
 	TxRepository
 	ListGamesRepository

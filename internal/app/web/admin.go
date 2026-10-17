@@ -66,24 +66,33 @@ var moscowTime = validation.By(func(value any) error {
 	return nil
 })
 
+// validate - ошибки разбора формы: даты в формате datetime-local, количества — целые числа.
+// Пустое число не разобрать, поэтому его наличие проверяется здесь. Остальные правила игры проверяет usecase
 func (f gameForm) validate() map[string]string {
 	return fieldErrors(validation.ValidateStruct(
 		&f,
-		validation.Field(&f.Name, validation.Required.Error("Укажите название")),
-		validation.Field(&f.Location, validation.Required.Error("Укажите место")),
-		validation.Field(&f.StartTime, validation.Required.Error("Укажите дату и время игры"), moscowTime),
-		validation.Field(
-			&f.RegistrationOpenTime,
-			validation.Required.Error("Укажите, когда открыть регистрацию"),
-			moscowTime,
-		),
+		validation.Field(&f.StartTime, moscowTime),
+		validation.Field(&f.RegistrationOpenTime, moscowTime),
 		validation.Field(
 			&f.MainAmount,
 			validation.Required.Error("Сколько команд играет?"),
-			intAtLeast(1, "Нужно число от 1"),
+			integer("Нужно число от 1"),
 		),
-		validation.Field(&f.ReserveAmount, intAtLeast(0, "Нужно число от 0")),
+		validation.Field(&f.ReserveAmount, integer("Нужно число от 0")),
 	))
+}
+
+// gameRuleMessages - подсказки у полей формы игры на нарушенные правила usecase
+var gameRuleMessages = ruleMessages{
+	usecase.FieldName:      {usecase.ErrRequired: "Укажите название"},
+	usecase.FieldLocation:  {usecase.ErrRequired: "Укажите место"},
+	usecase.FieldStartTime: {usecase.ErrRequired: "Укажите дату и время игры"},
+	usecase.FieldRegistrationOpenTime: {
+		usecase.ErrRequired:        "Укажите, когда открыть регистрацию",
+		usecase.ErrOpensAfterStart: "Регистрация должна открыться до начала игры",
+	},
+	usecase.FieldMainAmount:    {usecase.ErrTooSmall: "Нужно число от 1"},
+	usecase.FieldReserveAmount: {usecase.ErrTooSmall: "Нужно число от 0"},
 }
 
 func (f gameForm) times() (time.Time, time.Time) {
@@ -160,12 +169,11 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// порядок времён — правило игры, его проверяет usecase. Здесь только показываем ошибку у поля
+	// правила игры проверяет usecase, здесь только показываем нарушения у полей
 	_, err := wb.usecase.CreateGame(r.Context(), form.game())
-	if errors.Is(err, usecase.ErrOpensAfterStart) {
-		wb.renderGameForm(w, r, form, map[string]string{
-			"RegistrationOpenTime": "Регистрация должна открыться до начала игры",
-		})
+	invalid, isInvalid := errors.AsType[usecase.ValidationError](err)
+	if isInvalid {
+		wb.renderGameForm(w, r, form, gameRuleMessages.messages(invalid))
 		return
 	}
 	if err != nil {
@@ -187,20 +195,16 @@ type teamsView struct {
 	Teams []usecase.Registration
 	// ActiveCount - сколько команд осталось в игре, без удалённых
 	ActiveCount int
-	// MainAmount - команды с номером больше этого попали в резерв
+	// MainAmount - мест в основе, как задали при создании игры
 	MainAmount int64
 	// ReserveAmount - мест в резерве, как задали при создании игры
 	ReserveAmount int64
 }
 
-// ReserveStart - номер первой команды в резерве
-func (v teamsView) ReserveStart() int64 {
-	return v.MainAmount + 1
-}
-
-// FirstReserve - первая команда резерва: она займёт место команды, удалённой из основы. Пусто, если резерва нет
-func (v teamsView) FirstReserve() string {
-	team, _ := lo.Find(v.Teams, func(t usecase.Registration) bool { return t.Number == v.ReserveStart() })
+// FirstReserveName - название первой команды резерва: она займёт место команды, удалённой из основы.
+// Пусто, если резерва нет
+func (v teamsView) FirstReserveName() string {
+	team, _ := lo.Find(v.Teams, func(t usecase.Registration) bool { return t.FirstReserve })
 
 	return team.TeamName
 }
@@ -220,7 +224,7 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 	return teamsView{
 		Game:          newGameView(game, time.Now()),
 		Teams:         teams,
-		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return t.DeletedAt == nil }),
+		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return !t.Deleted }),
 		MainAmount:    game.MainAmount,
 		ReserveAmount: game.ReserveAmount,
 	}, true

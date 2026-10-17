@@ -12,6 +12,7 @@ import (
 	"quizon/internal/app/usecase"
 	"quizon/internal/app/usecase/mock"
 	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/pkg/testsupport"
 )
 
 func TestCreateRegistration(t *testing.T) {
@@ -46,7 +47,7 @@ func TestCreateRegistration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			in := model.Registrations{GameID: 7, TeamName: "КвизON"}
+			in := testsupport.FakeRegistration(7)
 			saved := in
 			saved.CreatedAt = testNow
 
@@ -152,9 +153,65 @@ func TestCreateRegistrationErrors(t *testing.T) {
 			tt.expect(repo)
 			u := usecase.NewUsecase(repo, nil, mockClock(testNow))
 
-			got, err := u.CreateRegistration(t.Context(), model.Registrations{GameID: 7, TeamName: "КвизON"})
+			got, err := u.CreateRegistration(t.Context(), testsupport.FakeRegistration(7))
 			if !errors.Is(err, tt.want) || got != "" {
 				t.Errorf("CreateRegistration = %q, %v; want no status, %v", got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestCreateRegistrationValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		edit  func(r *model.Registrations)
+		field string
+		rule  error
+	}{
+		{
+			name: "no captain", edit: func(r *model.Registrations) { r.CaptainName = "" },
+			field: usecase.FieldCaptainName, rule: usecase.ErrRequired,
+		},
+		{
+			name: "blank phone", edit: func(r *model.Registrations) { r.Phone = "  " },
+			field: usecase.FieldPhone, rule: usecase.ErrRequired,
+		},
+		{
+			name: "9 digits", edit: func(r *model.Registrations) { r.Phone = "999 888-77-6" },
+			field: usecase.FieldPhone, rule: usecase.ErrBadPhone,
+		},
+		{
+			name: "16 digits", edit: func(r *model.Registrations) { r.Phone = "+7 (999) 888-77-66 доб. 12345" },
+			field: usecase.FieldPhone, rule: usecase.ErrBadPhone,
+		},
+		{
+			name: "no telegram", edit: func(r *model.Registrations) { r.Telegram = "" },
+			field: usecase.FieldTelegram, rule: usecase.ErrRequired,
+		},
+		{
+			name: "no team name", edit: func(r *model.Registrations) { r.TeamName = "" },
+			field: usecase.FieldTeamName, rule: usecase.ErrRequired,
+		},
+		{
+			name: "nobody comes", edit: func(r *model.Registrations) { r.PlayersAmount = 0 },
+			field: usecase.FieldPlayersAmount, rule: usecase.ErrTooSmall,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			reg := testsupport.FakeRegistration(7)
+			tt.edit(&reg)
+			// анкету с нарушением не сохраняем и транзакцию не открываем: мок ничего не ждёт
+			u := usecase.NewUsecase(mockRepository(t), nil, mockClock(testNow))
+
+			status, err := u.CreateRegistration(t.Context(), reg)
+			var invalid usecase.ValidationError
+			if status != "" || !errors.As(err, &invalid) || len(invalid) != 1 || !errors.Is(invalid[tt.field], tt.rule) {
+				t.Errorf("CreateRegistration = %q, %v; want only %s: %v", status, err, tt.field, tt.rule)
 			}
 		})
 	}
