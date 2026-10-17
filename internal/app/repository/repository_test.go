@@ -103,15 +103,9 @@ func gameWithDeletedTeam(ctx context.Context, t *testing.T, db *pgxpool.Pool) (i
 
 	ids := make([]int64, 0, 3)
 	for i := range 3 {
-		ids = append(ids, testsupport.InsertRegistration(ctx, t, db, model.Registrations{
-			GameID:        gameID,
-			CreatedAt:     now.Add(time.Duration(i) * time.Second),
-			TeamName:      gofakeit.Gamertag(),
-			CaptainName:   "капитан",
-			Phone:         "89990000000",
-			Telegram:      "@team",
-			PlayersAmount: 5,
-		}))
+		reg := testsupport.FakeRegistration(gameID)
+		reg.CreatedAt = now.Add(time.Duration(i) * time.Second)
+		ids = append(ids, testsupport.InsertRegistration(ctx, t, db, reg))
 	}
 
 	err := deleteRegistration(ctx, r, gameID, ids[1])
