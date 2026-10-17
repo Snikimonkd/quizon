@@ -67,3 +67,6 @@
     }
   });
 })();
+
+// iOS Safari включает :active только на страницах с обработчиком касаний, без него нажатие на кнопку ничем не видно
+document.addEventListener("touchstart", () => {}, { passive: true });

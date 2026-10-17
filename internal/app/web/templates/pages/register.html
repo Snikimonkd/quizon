@@ -1,25 +1,17 @@
 {{define "content"}}
 {{with .Page}}
-<section class="sheet">
-  <hgroup>
-    <h1>Регистрация на игру</h1>
-    <p>{{.Game.Name}}, КвизON №{{.Game.ID}}</p>
-  </hgroup>
-  <ul class="facts">
-    <li>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3Z"/></svg>
-      <time datetime="{{iso .Game.StartTime}}">{{ruDateTime .Game.StartTime}}</time>
-    </li>
-    <li>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></svg>
-      <span>{{.Game.Location}}</span>
-    </li>
-    <li>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
-      <span>Регистрируется только капитан команды</span>
-    </li>
-  </ul>
-  <div id="registration">
+<section class="booth">
+  <h1 class="booth__title">Регистрация на игру</h1>
+  {{/* лампы вывески здесь не горят до итога: состояние мест знает только ответ на регистрацию */}}
+  <div class="booth__game show show--{{.Game.State}}">
+    {{template "show_sign" .Game}}
+    {{template "show_facts" .Game}}
+  </div>
+  <p class="booth__note">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+    Регистрируется только капитан команды
+  </p>
+  <div id="registration" class="booth__form">
     {{template "registration" .}}
   </div>
 </section>

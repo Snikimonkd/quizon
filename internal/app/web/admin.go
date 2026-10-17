@@ -233,21 +233,22 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageTeams, view)
 }
 
-// deleteTeam - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются
-func (wb *Web) deleteTeam(w http.ResponseWriter, r *http.Request) {
+// deleteRegistration - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются.
+// В адресе id регистрации (registrations.id), не «ID команды» из анкеты
+func (wb *Web) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	teamID, err := strconv.ParseInt(chi.URLParam(r, "teamID"), 10, 64)
+	registrationID, err := strconv.ParseInt(chi.URLParam(r, "registrationID"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	// ErrNotFound - команду уже удалили, например двойным нажатием: просто показываем актуальный список
-	err = wb.usecase.DeleteRegistration(r.Context(), gameID, teamID)
+	err = wb.usecase.DeleteRegistration(r.Context(), gameID, registrationID)
 	if err != nil && !errors.Is(err, usecase.ErrNotFound) {
 		wb.serverError(w, err)
 		return

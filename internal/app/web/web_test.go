@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"html/template"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -277,21 +278,57 @@ func TestHome(t *testing.T) {
 			"Мест нет",
 			"data-countdown",
 			"Игра завершена",
-			"18 октября",
-			// время начала рядом с датой в полосе билета
-			`18 октября <span class="ticket__time">12:00</span></time>`,
-			"воскресенье",
+			// в углу вывески только дата и день недели, времени там нет
+			`<span class="show__day">18</span> <span class="show__month">октября</span></time>`+
+				` <span class="show__weekday">воскресенье</span></p>`,
+			// время начала — в фактах на месте «с команды», рядом место
+			`<dt>место</dt><dd>ауд. 345</dd>`,
+			`<dt>начало игры</dt><dd>12:00</dd>`,
+			// лампы вывески включает класс состояния
+			`class="show show--open"`,
+			`class="show show--reserve"`,
+			`class="show show--closed"`,
+			`class="show show--waiting"`,
 			`href="/login"`,
 		)
-		assertNotContains(t, body, "/games/3/register", "/games/4/register", "Список участников")
+		assertNotContains(t, body,
+			"/games/3/register", "/games/4/register", "Список участников",
+			"Free", "с команды", "ticket__time", "show--finished",
+		)
+
+		// прошедшие игры — строками под своим заголовком, после всех предстоящих
+		archive := strings.Index(body, `<h2 id="archive-title">Прошедшие игры</h2>`)
+		if archive < 0 || strings.Index(body, `<li class="archive__row">`) < archive ||
+			strings.LastIndex(body, `<article class="show `) > archive {
+			t.Error("finished games must be listed under «Прошедшие игры» after the upcoming ones")
+		}
 	})
 
 	t.Run("admin", func(t *testing.T) {
 		t.Parallel()
 
 		rec := do(t, h, request{method: http.MethodGet, path: "/", admin: true})
-		assertContains(t, rec.Body.String(), `href="/admin/games/1/teams"`, "Создать игру", "Выйти")
+		assertContains(t, rec.Body.String(),
+			`href="/admin/games/1/teams"`,
+			"Создать игру",
+			"Выйти",
+			// у организатора состояние регистрации словами, ссылка на участников есть и у прошедшей игры
+			`<p class="show__status">Регистрация открыта</p>`,
+			`<a class="archive__teams" href="/admin/games/5/teams">Список участников</a>`,
+		)
 	})
+}
+
+func TestHomeOnlyPast(t *testing.T) {
+	t.Parallel()
+
+	uc := &fakeUsecase{games: []usecase.GameListItem{
+		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusOk),
+	}}
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
+	body := rec.Body.String()
+	assertContains(t, body, "Новых игр пока нет", "Прошедшие игры", `<li class="archive__row">`)
+	assertNotContains(t, body, "Игр пока нет", `class="playbill"`)
 }
 
 func TestHomeEmpty(t *testing.T) {
@@ -322,15 +359,28 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		status   usecase.RegistrationStatus
-		err      error
-		wantText string
+		name      string
+		status    usecase.RegistrationStatus
+		err       error
+		wantText  string
+		wantClass string
 	}{
-		{name: "ok", status: usecase.StatusOk, wantText: "Поздравляем!"},
-		{name: "reserve", status: usecase.StatusReserve, wantText: "Вы в резерве"},
-		{name: "closed", status: usecase.StatusClosed, wantText: "Мест нет"},
-		{name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "Регистрация ещё не открыта"},
+		{
+			name: "ok", status: usecase.StatusOk, wantText: "Поздравляем!",
+			wantClass: `class="outcome outcome--ok marquee"`,
+		},
+		{
+			name: "reserve", status: usecase.StatusReserve, wantText: "Вы в резерве",
+			wantClass: `class="outcome outcome--reserve marquee"`,
+		},
+		{
+			name: "closed", status: usecase.StatusClosed, wantText: "Мест нет",
+			wantClass: `class="outcome outcome--closed"`,
+		},
+		{
+			name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "Регистрация ещё не открыта",
+			wantClass: `class="outcome outcome--waiting"`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -345,7 +395,7 @@ func TestRegister(t *testing.T) {
 			}
 
 			body := rec.Body.String()
-			assertContains(t, body, tt.wantText, `role="status"`)
+			assertContains(t, body, tt.wantText, tt.wantClass, `role="status"`)
 			// htmx получает только фрагмент
 			assertNotContains(t, body, "<!doctype html>", "<form")
 
@@ -416,16 +466,18 @@ func TestRegistrationPageStates(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		game     func(g model.Games) model.Games
-		wantText string
-		wantForm bool
+		name      string
+		game      func(g model.Games) model.Games
+		wantText  string
+		wantState string
+		wantForm  bool
 	}{
 		{
-			name:     "open",
-			game:     func(g model.Games) model.Games { return g },
-			wantText: "Зарегистрироваться",
-			wantForm: true,
+			name:      "open",
+			game:      func(g model.Games) model.Games { return g },
+			wantText:  "Зарегистрироваться",
+			wantState: `class="booth__game show show--open"`,
+			wantForm:  true,
 		},
 		{
 			name: "waiting",
@@ -433,7 +485,8 @@ func TestRegistrationPageStates(t *testing.T) {
 				g.RegistrationOpenTime = testNow.Add(time.Hour)
 				return g
 			},
-			wantText: "Регистрация ещё не открыта",
+			wantText:  "Регистрация ещё не открыта",
+			wantState: `class="booth__game show show--waiting"`,
 		},
 		{
 			name: "finished",
@@ -441,7 +494,8 @@ func TestRegistrationPageStates(t *testing.T) {
 				g.StartTime = testNow.Add(-time.Hour)
 				return g
 			},
-			wantText: "Игра уже прошла",
+			wantText:  "Игра уже прошла",
+			wantState: `class="booth__game show show--finished"`,
 		},
 	}
 	for _, tt := range tests {
@@ -457,7 +511,7 @@ func TestRegistrationPageStates(t *testing.T) {
 			}
 
 			body := rec.Body.String()
-			assertContains(t, body, tt.wantText, "МГТУ им. Н.Э.Баумана ауд. 345")
+			assertContains(t, body, tt.wantText, tt.wantState, "<dt>место</dt><dd>МГТУ им. Н.Э.Баумана ауд. 345</dd>")
 			if strings.Contains(body, `hx-post="`+registerPath+`"`) != tt.wantForm {
 				t.Errorf("form presence = %v, want %v", !tt.wantForm, tt.wantForm)
 			}
@@ -813,13 +867,14 @@ func TestHashAssetsChangesWithContent(t *testing.T) {
 	}
 }
 
-const deleteTeamPath = "/admin/games/7/teams/20/delete"
+const deleteRegistrationPath = "/admin/games/7/teams/20/delete"
 
-func TestDeleteTeam(t *testing.T) {
+func TestDeleteRegistration(t *testing.T) {
 	t.Parallel()
 
 	uc := teamsUsecase()
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+	req := request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true}
+	rec := do(t, newTestRouter(t, uc), req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -833,7 +888,7 @@ func TestDeleteTeam(t *testing.T) {
 	}
 }
 
-func deletedTeamUsecase(t *testing.T) *fakeUsecase {
+func deletedRegistrationUsecase(t *testing.T) *fakeUsecase {
 	t.Helper()
 
 	uc := teamsUsecase()
@@ -848,7 +903,8 @@ func deletedTeamUsecase(t *testing.T) *fakeUsecase {
 func TestTeamsPageDeleted(t *testing.T) {
 	t.Parallel()
 
-	rec := do(t, newTestRouter(t, deletedTeamUsecase(t)), request{method: http.MethodGet, path: teamsPath, admin: true})
+	h := newTestRouter(t, deletedRegistrationUsecase(t))
+	rec := do(t, h, request{method: http.MethodGet, path: teamsPath, admin: true})
 	body := rec.Body.String()
 	// «Вторые» удалены: строка на месте, серая, без номера и без корзины; «Третьи» поднялись в основу
 	assertContains(t, body,
@@ -866,7 +922,7 @@ func TestTeamsPageDeleted(t *testing.T) {
 func TestTeamsExportSkipsDeleted(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, deletedTeamUsecase(t))
+	h := newTestRouter(t, deletedRegistrationUsecase(t))
 	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
 
 	f, err := excelize.OpenReader(rec.Body)
@@ -884,36 +940,37 @@ func TestTeamsExportSkipsDeleted(t *testing.T) {
 	}
 }
 
-func TestDeleteTeamNoJS(t *testing.T) {
+func TestDeleteRegistrationNoJS(t *testing.T) {
 	t.Parallel()
 
-	rec := do(t, newTestRouter(t, teamsUsecase()), request{method: http.MethodPost, path: deleteTeamPath, admin: true})
+	h := newTestRouter(t, teamsUsecase())
+	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, admin: true})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != teamsPath {
 		t.Errorf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
-func TestDeleteTeamTwice(t *testing.T) {
+func TestDeleteRegistrationTwice(t *testing.T) {
 	t.Parallel()
 
 	h := newTestRouter(t, teamsUsecase())
-	do(t, h, request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+	do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true})
 
 	// второе нажатие не ошибка: показываем актуальный список
-	rec := do(t, h, request{method: http.MethodPost, path: deleteTeamPath, htmx: true, admin: true})
+	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	assertContains(t, rec.Body.String(), "Команд: 2")
 }
 
-func TestDeleteTeamRejected(t *testing.T) {
+func TestDeleteRegistrationRejected(t *testing.T) {
 	t.Parallel()
 
 	uc := teamsUsecase()
 	h := newTestRouter(t, uc)
 
-	rec := do(t, h, request{method: http.MethodPost, path: deleteTeamPath})
+	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
 		t.Errorf("guest: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -982,4 +1039,20 @@ func TestPageTitles(t *testing.T) {
 	// заголовок попадает во вкладку браузера
 	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
 	assertContains(t, rec.Body.String(), "<title>Вход — КвизON</title>")
+}
+
+func TestDateFuncs(t *testing.T) {
+	t.Parallel()
+
+	tmpl := template.Must(template.New("").Funcs(funcs(assets{})).Parse(`{{ruDay .}} {{ruMonth .}}`))
+
+	// 22:30 UTC 17 октября — по Москве уже 18 октября
+	var b strings.Builder
+	err := tmpl.Execute(&b, time.Date(2026, time.October, 17, 22, 30, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.String() != "18 октября" {
+		t.Errorf("got %q, want «18 октября»", b.String())
+	}
 }
