@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Page}}
 <section class="sheet">
-  <h1>Новая игра</h1>
+  <h1 class="sheet__sign marquee">Новая игра</h1>
   <form method="post" action="/admin/games/new">
     {{range .Fields}}{{template "field" .}}{{end}}
     <button type="submit">Создать игру</button>

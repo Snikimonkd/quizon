@@ -13,7 +13,7 @@
 {{/* Подтверждение удаления. app.js показывает его вместо window.confirm:
      вопрос берёт из hx-confirm, пояснение — из data-confirm-text формы */}}
 <dialog id="confirm-dialog" class="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
-  <article>
+  <article class="marquee">
     <h2 id="confirm-title"></h2>
     <p id="confirm-text"></p>
     <footer>
@@ -27,11 +27,15 @@
 {{end}}
 {{end}}
 
-{{/* Содержимое #teams: счётчик и таблица. После удаления команды htmx заменяет его целиком.
+{{/* Содержимое #teams: счётчик, места из настроек игры и таблица. После удаления команды htmx заменяет его целиком.
      Удалённые команды остаются в таблице на своём месте, но серые, без номера и без кнопки удаления */}}
 {{define "teams"}}
 <div class="teams-bar">
   <p>Команд: {{len .Active}}</p>
+  <dl class="teams-places">
+    <div><dt>мест в основе</dt><dd>{{.MainAmount}}</dd></div>
+    <div><dt>мест в резерве</dt><dd>{{.ReserveAmount}}</dd></div>
+  </dl>
   {{if .Active}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
 </div>
 {{if .Teams}}

@@ -186,6 +186,8 @@ type teamsView struct {
 	Teams []usecase.Registration
 	// MainAmount - команды с номером больше этого попали в резерв
 	MainAmount int64
+	// ReserveAmount - мест в резерве, как задали при создании игры
+	ReserveAmount int64
 }
 
 // ReserveStart - номер первой команды в резерве
@@ -218,9 +220,10 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 	}
 
 	return teamsView{
-		Game:       newGameView(game, usecase.StatusOk, wb.now()),
-		Teams:      teams,
-		MainAmount: game.MainAmount,
+		Game:          newGameView(game, wb.now()),
+		Teams:         teams,
+		MainAmount:    game.MainAmount,
+		ReserveAmount: game.ReserveAmount,
 	}, true
 }
 

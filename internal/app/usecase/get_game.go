@@ -11,17 +11,26 @@ import (
 
 type GetGameRepository interface {
 	GetGame(ctx context.Context, gameID int64) (model.Games, error)
+	RegistrationsAmount(ctx context.Context, gameID int64) (int64, error)
 }
 
-// GetGame - получить игру по id
-func (u usecase) GetGame(ctx context.Context, gameID int64) (model.Games, error) {
+// GetGame - получить игру по id и статус регистрации на неё, как в списке игр
+func (u usecase) GetGame(ctx context.Context, gameID int64) (GameListItem, error) {
 	game, err := u.repository.GetGame(ctx, gameID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return model.Games{}, ErrNotFound
+		return GameListItem{}, ErrNotFound
 	}
 	if err != nil {
-		return model.Games{}, err
+		return GameListItem{}, err
 	}
 
-	return game, nil
+	registered, err := u.repository.RegistrationsAmount(ctx, gameID)
+	if err != nil {
+		return GameListItem{}, err
+	}
+
+	return GameListItem{
+		Games:  game,
+		Status: registrationStatus(registered, game.MainAmount, game.ReserveAmount),
+	}, nil
 }

@@ -2,7 +2,8 @@
 {{with .Page}}
 <section class="booth">
   <h1 class="booth__title">Регистрация на игру</h1>
-  {{/* лампы вывески здесь не горят до итога: состояние мест знает только ответ на регистрацию */}}
+  {{/* лампы вывески горят по состоянию регистрации, как на главной. После отправки htmx меняет только #registration:
+       вывеску под итог подстраивают правила с :has(.outcome--…) в app.css */}}
   <div class="booth__game show show--{{.Game.State}}">
     {{template "show_sign" .Game}}
     {{template "show_facts" .Game}}
@@ -27,7 +28,8 @@
   hx-post="/games/{{.Game.ID}}/register" hx-target="#registration" hx-swap="innerHTML show:top"
   hx-disable="find button">
   {{range .Fields}}{{template "field" .}}{{end}}
-  <button type="submit">Зарегистрироваться</button>
+  {{/* лампы вывески — картинка, поэтому про резерв говорит и кнопка, как на главной */}}
+  <button type="submit">{{if eq .Game.State "reserve"}}Зарегистрироваться в резерв{{else}}Зарегистрироваться{{end}}</button>
   <p class="agreement">
     Отправляя свои данные, вы соглашаетесь на
     <a href="https://bmstu.ru/about/obrabotka-dannyh" target="_blank" rel="noopener noreferrer">обработку персональных данных</a>.

@@ -145,10 +145,14 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view := registerView{
-		Game:   newGameView(game, usecase.StatusOk, wb.now()),
+		Game:   newGameView(game, wb.now()),
 		Fields: registrationForm{}.fields(nil),
 	}
 	view.Outcome = closedOutcome(view.Game)
+	// мест нет - вместо формы сразу итог
+	if view.Game.State == stateClosed {
+		view.Outcome = outcome(usecase.StatusClosed)
+	}
 	wb.renderPage(w, r, http.StatusOK, pageRegister, view)
 }
 
@@ -159,7 +163,7 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := parseRegistrationForm(r)
-	view := registerView{Game: newGameView(game, usecase.StatusOk, wb.now())}
+	view := registerView{Game: newGameView(game, wb.now())}
 
 	view.Outcome = closedOutcome(view.Game)
 	if view.Outcome != "" {
@@ -188,7 +192,8 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	wb.renderRegistration(w, r, http.StatusOK, view)
 }
 
-// closedOutcome - почему форму сейчас показывать не надо; пустая строка - форма нужна
+// closedOutcome - итог вместо формы, если регистрация закрыта по времени: ещё не открылась или игра прошла.
+// Пустая строка - форма нужна. Места здесь не проверяем: при отправке их считает usecase под блокировкой игры
 func closedOutcome(game gameView) outcome {
 	switch game.State {
 	case stateFinished:

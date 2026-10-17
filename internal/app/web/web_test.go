@@ -47,6 +47,8 @@ type fakeUsecase struct {
 	registrationErr error
 	teams           []usecase.Registration
 	loginErr        error
+	// gameStatus - статус регистрации, с которым GetGame отдаёт game. Не путать с status - итогом CreateRegistration
+	gameStatus usecase.RegistrationStatus
 
 	gotRegistration *model.Registrations
 	gotGame         *model.Games
@@ -57,12 +59,12 @@ func (f *fakeUsecase) ListGames(context.Context, int64, int64) ([]usecase.GameLi
 	return f.games, nil
 }
 
-func (f *fakeUsecase) GetGame(_ context.Context, gameID int64) (model.Games, error) {
+func (f *fakeUsecase) GetGame(_ context.Context, gameID int64) (usecase.GameListItem, error) {
 	if gameID != f.game.ID {
-		return model.Games{}, usecase.ErrNotFound
+		return usecase.GameListItem{}, usecase.ErrNotFound
 	}
 
-	return f.game, nil
+	return usecase.GameListItem{Games: f.game, Status: f.gameStatus}, nil
 }
 
 func (f *fakeUsecase) CreateRegistration(
@@ -267,7 +269,8 @@ func TestHome(t *testing.T) {
 		listItem(2, future, testNow.Add(-time.Hour), usecase.StatusReserve),
 		listItem(3, future, testNow.Add(-time.Hour), usecase.StatusClosed),
 		listItem(4, future, testNow.Add(time.Hour), usecase.StatusOk),
-		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusOk),
+		// у прошедшей игры места обычно разобраны: время важнее статуса, игра уходит в архив
+		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed),
 	}}
 	h := newTestRouter(t, uc)
 
@@ -286,6 +289,9 @@ func TestHome(t *testing.T) {
 			`href="/games/2/register">Регистрация в резерв</a>`,
 			"Мест нет",
 			"data-countdown",
+			// у ожидающей игры внизу та же плашка «Регистрация», погашенная, с отсчётом до открытия
+			`<p class="show__cta show__cta--off">Регистрация<span class="visually-hidden"> откроется</span>`+
+				` <time class="countdown"`,
 			"Игра завершена",
 			// в углу вывески только дата и день недели, времени там нет
 			`<span class="show__day">18</span> <span class="show__month">октября</span></time>`+
@@ -299,11 +305,23 @@ func TestHome(t *testing.T) {
 			`class="show show--closed"`,
 			`class="show show--waiting"`,
 			`href="/login"`,
+			`<ul class="archive__list" role="list">`,
+			// в архиве дата с годом
+			`>16 октября 2026</time>, пятница</p>`,
 		)
 		assertNotContains(t, body,
 			"/games/3/register", "/games/4/register", "Список участников",
 			"Free", "с команды", "ticket__time", "show--finished",
 		)
+
+		// место слева, время начала справа
+		if strings.Index(body, "<dt>место</dt>") > strings.Index(body, "<dt>начало игры</dt>") {
+			t.Error("«место» must come before «начало игры»")
+		}
+		// дата вывески в разметке после заголовка: её читают вместе с названием игры
+		if strings.Index(body, `<h2 class="show__title">`) > strings.Index(body, `<p class="show__date">`) {
+			t.Error("the sign title must come before its date in markup")
+		}
 
 		// прошедшие игры — строками под своим заголовком, после всех предстоящих
 		archive := strings.Index(body, `<h2 id="archive-title">Прошедшие игры</h2>`)
@@ -332,7 +350,7 @@ func TestHomeOnlyPast(t *testing.T) {
 	t.Parallel()
 
 	uc := &fakeUsecase{games: []usecase.GameListItem{
-		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusOk),
+		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed),
 	}}
 	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
 	body := rec.Body.String()
@@ -340,11 +358,25 @@ func TestHomeOnlyPast(t *testing.T) {
 	assertNotContains(t, body, "Игр пока нет", `class="playbill"`)
 }
 
+func TestHomeOnlyUpcoming(t *testing.T) {
+	t.Parallel()
+
+	uc := &fakeUsecase{games: []usecase.GameListItem{
+		listItem(1, testNow.Add(48*time.Hour), testNow.Add(-time.Hour), usecase.StatusOk),
+	}}
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
+	body := rec.Body.String()
+	assertContains(t, body, `class="playbill"`)
+	// без прошедших игр архива нет совсем, даже заголовка
+	assertNotContains(t, body, "archive-title", "Прошедшие игры", "Игр пока нет")
+}
+
 func TestHomeEmpty(t *testing.T) {
 	t.Parallel()
 
 	h := newTestRouter(t, &fakeUsecase{})
 	rec := do(t, h, request{method: http.MethodGet, path: "/"})
+	assertNotContains(t, rec.Body.String(), "archive-title")
 	assertContains(t, rec.Body.String(),
 		"Игр пока нет",
 		`aria-label="КвизON во ВКонтакте"`,
@@ -378,20 +410,21 @@ func TestRegister(t *testing.T) {
 		wantClass string
 	}{
 		{
-			name: "ok", status: usecase.StatusOk, wantText: "Поздравляем!",
+			name: "ok", status: usecase.StatusOk, wantText: "<h2>Поздравляем!</h2>",
 			wantClass: `class="outcome outcome--ok marquee"`,
 		},
 		{
-			name: "reserve", status: usecase.StatusReserve, wantText: "Вы в резерве",
+			name: "reserve", status: usecase.StatusReserve, wantText: "<h2>Ой! Вы в резерве</h2>",
 			wantClass: `class="outcome outcome--reserve marquee"`,
 		},
 		{
-			name: "closed", status: usecase.StatusClosed, wantText: "Мест нет",
+			name: "closed", status: usecase.StatusClosed, wantText: "<h2>Извини! Мест нет</h2>",
 			wantClass: `class="outcome outcome--closed"`,
 		},
 		{
-			name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "Регистрация ещё не открыта",
-			wantClass: `class="outcome outcome--waiting"`,
+			// отсчёт тикает каждую секунду, поэтому сам итог не живая область: role="status" только у заголовка
+			name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "<h2>Регистрация ещё не открыта</h2>",
+			wantClass: `class="outcome outcome--waiting">`,
 		},
 	}
 	for _, tt := range tests {
@@ -409,8 +442,8 @@ func TestRegister(t *testing.T) {
 
 			body := rec.Body.String()
 			assertContains(t, body, tt.wantText, tt.wantClass, `role="status"`)
-			// htmx получает только фрагмент
-			assertNotContains(t, body, "<!doctype html>", "<form")
+			// htmx получает только фрагмент; в заголовках итога эмодзи больше нет
+			assertNotContains(t, body, "<!doctype html>", "<form", "🙈")
 
 			got := uc.gotRegistration
 			if got == nil {
@@ -488,19 +521,43 @@ func TestRegisterValidation(t *testing.T) {
 func TestRegistrationPageStates(t *testing.T) {
 	t.Parallel()
 
+	// мест нет, но игра ещё впереди: отправку всё равно решает usecase, см. TestRegisterFullGame
+	const closedState = `class="booth__game show show--closed"`
+
+	// лампы вывески показывают настоящий статус регистрации, как на главной. Лампы — картинка,
+	// поэтому про резерв говорит и кнопка
 	tests := []struct {
 		name      string
 		game      func(g model.Games) model.Games
+		status    usecase.RegistrationStatus
 		wantText  string
 		wantState string
 		wantForm  bool
+		wantMore  []string
+		notWant   []string
 	}{
 		{
 			name:      "open",
-			game:      func(g model.Games) model.Games { return g },
-			wantText:  "Зарегистрироваться",
+			status:    usecase.StatusOk,
+			wantText:  `<button type="submit">Зарегистрироваться</button>`,
 			wantState: `class="booth__game show show--open"`,
 			wantForm:  true,
+			notWant:   []string{"в резерв"},
+		},
+		{
+			name:      "reserve",
+			status:    usecase.StatusReserve,
+			wantText:  `<button type="submit">Зарегистрироваться в резерв</button>`,
+			wantState: `class="booth__game show show--reserve"`,
+			wantForm:  true,
+		},
+		{
+			// мест нет: вместо формы сразу итог, как после отправки
+			name:      "closed",
+			status:    usecase.StatusClosed,
+			wantText:  "<h2>Извини! Мест нет</h2>",
+			wantState: closedState,
+			wantMore:  []string{`<div class="outcome outcome--closed" role="status">`},
 		},
 		{
 			name: "waiting",
@@ -510,13 +567,21 @@ func TestRegistrationPageStates(t *testing.T) {
 			},
 			wantText:  "Регистрация ещё не открыта",
 			wantState: `class="booth__game show show--waiting"`,
+			// отсчёт вне живой области: иначе экранный диктор перечитывал бы итог каждую секунду
+			wantMore: []string{
+				"data-countdown",
+				`<div class="outcome outcome--waiting">`,
+				`<div role="status"><h2>Регистрация ещё не открыта</h2></div>`,
+			},
 		},
 		{
+			// игра прошла, и места обычно разобраны: время важнее статуса
 			name: "finished",
 			game: func(g model.Games) model.Games {
 				g.StartTime = testNow.Add(-time.Hour)
 				return g
 			},
+			status:    usecase.StatusClosed,
 			wantText:  "Игра уже прошла",
 			wantState: `class="booth__game show show--finished"`,
 		},
@@ -525,7 +590,11 @@ func TestRegistrationPageStates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			uc := &fakeUsecase{game: tt.game(testGame())}
+			game := testGame()
+			if tt.game != nil {
+				game = tt.game(game)
+			}
+			uc := &fakeUsecase{game: game, gameStatus: tt.status}
 			h := newTestRouter(t, uc)
 
 			rec := do(t, h, request{method: http.MethodGet, path: registerPath})
@@ -534,13 +603,19 @@ func TestRegistrationPageStates(t *testing.T) {
 			}
 
 			body := rec.Body.String()
-			assertContains(t, body, tt.wantText, tt.wantState, locationFact)
+			// форму и итог htmx меняет внутри #registration
+			assertContains(t, body, tt.wantText, tt.wantState, locationFact, `<div id="registration" class="booth__form">`)
+			assertContains(t, body, tt.wantMore...)
+			assertNotContains(t, body, tt.notWant...)
 			if strings.Contains(body, `hx-post="`+registerPath+`"`) != tt.wantForm {
 				t.Errorf("form presence = %v, want %v", !tt.wantForm, tt.wantForm)
 			}
+			if tt.wantForm {
+				assertContains(t, body, `hx-target="#registration"`)
+			}
 
-			// POST в закрытую регистрацию не доходит до usecase
-			if !tt.wantForm {
+			// POST в закрытую по времени регистрацию не доходит до usecase, даже если мест нет
+			if !tt.wantForm && tt.wantState != closedState {
 				do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration()})
 				if uc.gotRegistration != nil {
 					t.Error("registration was sent to usecase")
@@ -548,6 +623,30 @@ func TestRegistrationPageStates(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRegisterFullGame - по счётчику мест нет, но анкету всё равно проверяет usecase под блокировкой игры:
+// пока капитан её заполнял, команду могли удалить и место освободилось
+func TestRegisterFullGame(t *testing.T) {
+	t.Parallel()
+
+	uc := &fakeUsecase{game: testGame(), gameStatus: usecase.StatusClosed, status: usecase.StatusOk}
+	h := newTestRouter(t, uc)
+
+	rec := do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration(), htmx: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	assertContains(t, rec.Body.String(), "<h2>Поздравляем!</h2>")
+	if uc.gotRegistration == nil {
+		t.Error("registration wasn't sent to usecase")
+	}
+
+	// без js страница целиком: вывеска с состоянием до отправки, свет под итог включают правила :has(.outcome--ok)
+	rec = do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration()})
+	assertContains(t, rec.Body.String(),
+		"<!doctype html>", `class="booth__game show show--closed"`, "<h2>Поздравляем!</h2>",
+	)
 }
 
 func TestUnknownGame(t *testing.T) {
@@ -582,6 +681,8 @@ func TestAdminRequiresLogin(t *testing.T) {
 		t.Errorf("admin: status = %d", rec.Code)
 	}
 	assertContains(t, rec.Body.String(),
+		// заголовок на погашенной вывеске, как у входа
+		`<h1 class="sheet__sign marquee">Новая игра</h1>`,
 		`value="Бауманская лига"`,
 		`type="datetime-local"`,
 		`name="main_amount" type="number" value="20"`,
@@ -716,6 +817,9 @@ func TestTeamsPage(t *testing.T) {
 	body := rec.Body.String()
 	assertContains(t, body,
 		"Команд: 3",
+		// места, заданные при создании игры: в testGame основа 2, резерв 1
+		`<dt>мест в основе</dt><dd>2</dd>`,
+		`<dt>мест в резерве</dt><dd>1</dd>`,
 		uc.teamName(2),
 		"/admin/games/7/teams.xlsx",
 		// основной состав 2, третья команда первая в резерве: над ней линия
@@ -745,6 +849,8 @@ func TestTeamsConfirmDialog(t *testing.T) {
 	body := rec.Body.String()
 	assertContains(t, body,
 		`<dialog id="confirm-dialog"`,
+		// окно — та же вывеска с лампами, что на главной
+		`<article class="marquee">`,
 		`<button value="cancel" class="confirm__cancel" autofocus>Отмена</button>`,
 		// третья команда сама в резерве, на её место никто не придёт
 		`data-confirm-text="`+gone+`"`,
@@ -894,8 +1000,12 @@ func TestDeleteRegistration(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	// htmx получает только содержимое #teams с обновлённым списком, окно подтверждения остаётся на странице
-	assertContains(t, body, "Команд: 2", uc.teamName(0), uc.teamName(1), uc.teamName(2))
+	// htmx получает только содержимое #teams с обновлённым списком, окно подтверждения остаётся на странице.
+	// Места из настроек игры входят в него и после удаления не пропадают
+	assertContains(t, body,
+		"Команд: 2", `<dt>мест в основе</dt><dd>2</dd>`, `<dt>мест в резерве</dt><dd>1</dd>`,
+		uc.teamName(0), uc.teamName(1), uc.teamName(2),
+	)
 	assertNotContains(t, body, "<!doctype html>", "<h1>", "confirm-dialog")
 	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
 		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
@@ -1055,18 +1165,59 @@ func TestPageTitles(t *testing.T) {
 	assertContains(t, rec.Body.String(), "<title>Вход — КвизON</title>")
 }
 
+func TestLoginSign(t *testing.T) {
+	t.Parallel()
+
+	// вход — погашенная вывеска с заголовком и подписью, форма под ней
+	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
+	body := rec.Body.String()
+	assertContains(t, body, `<hgroup class="sheet__sign marquee">`, "<h1>Вход</h1>", "<p>Для организаторов игр</p>")
+	if strings.Index(body, "sheet__sign") > strings.Index(body, `<form method="post" action="/login">`) {
+		t.Error("sign must go before the form")
+	}
+}
+
 func TestDateFuncs(t *testing.T) {
 	t.Parallel()
 
-	tmpl := template.Must(template.New("").Funcs(funcs(assets{})).Parse(`{{ruDay .}} {{ruMonth .}}`))
-
-	// 22:30 UTC 17 октября — по Москве уже 18 октября
-	var b strings.Builder
-	err := tmpl.Execute(&b, time.Date(2026, time.October, 17, 22, 30, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
+	const (
+		signDate    = `{{ruDay .}} {{ruMonth .}} {{ruWeekday .}}`
+		archiveDate = `{{ruDate .}}, {{ruWeekday .}}`
+	)
+	tests := []struct {
+		name string
+		text string
+		at   time.Time
+		want string
+	}{
+		{
+			// 22:30 UTC в субботу 31 октября — по Москве уже воскресенье, 1 ноября: другие и число, и месяц, и день недели
+			name: "sign", text: signDate,
+			at: time.Date(2026, time.October, 31, 22, 30, 0, 0, time.UTC), want: "1 ноября воскресенье",
+		},
+		{
+			// 21:30 UTC 31 декабря — по Москве уже 1 января, и год следующий
+			name: "archive after new year in Moscow", text: archiveDate,
+			at: time.Date(2025, time.December, 31, 21, 30, 0, 0, time.UTC), want: "1 января 2026, четверг",
+		},
+		{
+			name: "archive before new year in Moscow", text: archiveDate,
+			at: time.Date(2025, time.December, 31, 20, 59, 0, 0, time.UTC), want: "31 декабря 2025, среда",
+		},
 	}
-	if b.String() != "18 октября" {
-		t.Errorf("got %q, want «18 октября»", b.String())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpl := template.Must(template.New("").Funcs(funcs(assets{})).Parse(tt.text))
+			var b strings.Builder
+			err := tmpl.Execute(&b, tt.at)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if b.String() != tt.want {
+				t.Errorf("got %q, want %q", b.String(), tt.want)
+			}
+		})
 	}
 }
