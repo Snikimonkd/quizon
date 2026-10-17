@@ -22,7 +22,7 @@ func ConnectToTestPostgres(ctx context.Context, t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	s.Do(func() {
 		var err error
-		db, err = config.ConnectToPostgresByDSN(ctx, dsn)
+		db, err = config.ConnectToPostgres(ctx, dsn)
 		if err != nil {
 			t.Fatalf("can't connect to db: %v", err)
 		}

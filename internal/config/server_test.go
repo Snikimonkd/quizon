@@ -7,40 +7,21 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func TestNewServerAddr(t *testing.T) {
 	t.Parallel()
 
-	noRoutes := func(chi.Router) {}
-	if got := NewServer(noRoutes, false).Addr; got != "127.0.0.1:8000" {
+	handler := http.NotFoundHandler()
+	if got := NewServer(handler, false).Addr; got != "127.0.0.1:8000" {
 		t.Errorf("prod addr = %q, want loopback only", got)
 	}
-	if got := NewServer(noRoutes, true).Addr; got != ":8000" {
+	if got := NewServer(handler, true).Addr; got != ":8000" {
 		t.Errorf("debug addr = %q, want all interfaces", got)
-	}
-}
-
-func TestDebug(t *testing.T) {
-	// значение не важно, достаточно самой переменной
-	t.Setenv("DEBUG", "")
-	if !Debug() {
-		t.Error("DEBUG is set, Debug() must be true")
-	}
-
-	// t.Setenv вернёт прежнее значение после теста
-	err := os.Unsetenv("DEBUG")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if Debug() {
-		t.Error("DEBUG is unset, Debug() must be false")
 	}
 }
 

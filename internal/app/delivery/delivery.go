@@ -41,14 +41,14 @@ type Usecase interface {
 	Logout(token string)
 }
 
-// delivery - html-интерфейс сервиса
+// delivery - html-интерфейс сервиса: http.Handler со всеми страницами и статикой
 type delivery struct {
 	usecase Usecase
 	// domain - домен куки входа
 	domain string
 	pages  map[page]*template.Template
-	static fs.FS
 	assets assets
+	router http.Handler
 }
 
 // New - конструктор для delivery. domain - домен куки входа: localhost локально, quiz-on.ru на проде
@@ -68,18 +68,25 @@ func New(uc Usecase, domain string) (*delivery, error) {
 		return nil, err
 	}
 
-	return &delivery{
+	wb := &delivery{
 		usecase: uc,
 		domain:  domain,
 		pages:   pages,
-		static:  static,
 		assets:  assets,
-	}, nil
+	}
+	wb.router = wb.routes(static)
+
+	return wb, nil
 }
 
-// Routes - регистрирует html-страницы и статику
-func (wb *delivery) Routes(r chi.Router) {
-	r.Handle("/static/*", http.StripPrefix("/static/", wb.assets.handler(wb.static)))
+func (wb *delivery) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	wb.router.ServeHTTP(w, r)
+}
+
+// routes - маршруты html-страниц и статики
+func (wb *delivery) routes(static fs.FS) http.Handler {
+	r := chi.NewRouter()
+	r.Handle("/static/*", http.StripPrefix("/static/", wb.assets.handler(static)))
 
 	r.Get("/", wb.home)
 	r.Get("/games/{id}/register", wb.registrationPage)
@@ -96,6 +103,8 @@ func (wb *delivery) Routes(r chi.Router) {
 		r.Get("/admin/games/{id}/teams.xlsx", wb.exportTeams)
 		r.Post("/admin/games/{id}/teams/{registrationID}/delete", wb.deleteRegistration)
 	})
+
+	return r
 }
 
 func parsePages(fsys fs.FS, assets assets) (map[page]*template.Template, error) {

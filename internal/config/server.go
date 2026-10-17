@@ -1,13 +1,10 @@
 package config
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -18,35 +15,13 @@ const (
 	debugAddr string = `:8000`
 )
 
-// Debug - запуск для локальной разработки: задана переменная окружения DEBUG, значение не важно
-func Debug() bool {
-	_, ok := os.LookupEnv("DEBUG")
-
-	return ok
-}
-
-// Domain - домен куки входа из переменной окружения DOMAIN: localhost локально, quiz-on.ru на проде
-func Domain() (string, error) {
-	domain := os.Getenv("DOMAIN")
-	if domain == "" {
-		return "", errors.New("empty domain in env variable")
-	}
-
-	return domain, nil
-}
-
-// NewServer - собирает http-сервер, маршруты регистрирует routes. debug — см. Debug
-func NewServer(routes func(chi.Router), debug bool) *http.Server {
+// NewServer - собирает http-сервер вокруг handler. debug — см. Config.Debug
+func NewServer(handler http.Handler, debug bool) *http.Server {
 	log := slog.Default()
 
-	router := chi.NewRouter()
-
-	// id запроса нужен журналу: по нему ошибка обработчика находится рядом со строкой самого запроса
-	router.Use(middleware.RequestID)
-	router.Use(requestLogger(log))
-	router.Use(recoverer(log))
-
-	routes(router)
+	// id запроса нужен журналу: по нему ошибка обработчика находится рядом со строкой самого запроса.
+	// recoverer внутри журнала: ответ 500 после паники тоже попадает в журнал
+	handler = middleware.RequestID(requestLogger(log)(recoverer(log)(handler)))
 
 	listen := addr
 	if debug {
@@ -55,7 +30,7 @@ func NewServer(routes func(chi.Router), debug bool) *http.Server {
 
 	return &http.Server{
 		Addr:              listen,
-		Handler:           router,
+		Handler:           handler,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelError),
 		ReadTimeout:       time.Second * 5,
 		ReadHeaderTimeout: time.Second * 5,

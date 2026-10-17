@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,17 +14,8 @@ const (
 	retryTimeout time.Duration = time.Second * 5
 )
 
-// ConnectToPostgres - подключается к postgres
-func ConnectToPostgres(ctx context.Context) (*pgxpool.Pool, error) {
-	dsn := os.Getenv("PG_DSN")
-	if dsn == "" {
-		return nil, fmt.Errorf("empty dsn in env variable")
-	}
-
-	return ConnectToPostgresByDSN(ctx, dsn)
-}
-
-func ConnectToPostgresByDSN(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+// ConnectToPostgres - подключается к postgres по dsn
+func ConnectToPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	db, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to db: %w", err)
