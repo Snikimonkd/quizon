@@ -27,7 +27,7 @@ var files embed.FS
 // Usecase - бизнес-логика, которую использует веб-интерфейс
 type Usecase interface {
 	ListGames(ctx context.Context, page int64, perPage int64) ([]usecase.GameListItem, error)
-	GetGame(ctx context.Context, gameID int64) (model.Games, error)
+	GetGame(ctx context.Context, gameID int64) (usecase.GameListItem, error)
 	CreateRegistration(ctx context.Context, in model.Registrations) (usecase.RegistrationStatus, error)
 	CreateGame(ctx context.Context, in model.Games) (int64, error)
 	ListRegistrations(ctx context.Context, gameID int64) ([]usecase.Registration, error)
@@ -147,10 +147,10 @@ func funcs(assets assets) template.FuncMap {
 	return template.FuncMap{
 		// /static/app.css?v=<хэш>, см. assets.handler
 		"asset": assets.url,
-		// 2 ноября
+		// 2 ноября 2026
 		"ruDate": func(t time.Time) string {
 			t = t.In(utils.LocMsk)
-			return fmt.Sprintf("%d %s", t.Day(), months[t.Month()-1])
+			return fmt.Sprintf("%d %s %d", t.Day(), months[t.Month()-1], t.Year())
 		},
 		// 2
 		"ruDay": func(t time.Time) int {

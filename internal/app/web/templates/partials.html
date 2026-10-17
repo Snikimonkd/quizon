@@ -16,14 +16,15 @@
 {{/* Обратный отсчёт до открытия регистрации, app.js обновляет текст каждую секунду */}}
 {{define "countdown"}}<time class="countdown" datetime="{{iso .}}" data-countdown>{{ruDateTime .}}</time>{{end}}
 
-{{/* Вывеска игры: дата с днём недели (без времени) и название. Лампы по краю рисует CSS. Ожидает web.gameView */}}
+{{/* Вывеска игры: название и дата с днём недели (без времени). Лампы по краю рисует CSS. Ожидает web.gameView.
+     Дата в разметке после заголовка, чтобы читалась вместе с ним; первой на вывеске её ставит CSS */}}
 {{define "show_sign"}}
 <div class="marquee show__sign">
-  <p class="show__date"><time datetime="{{iso .StartTime}}"><span class="show__day">{{ruDay .StartTime}}</span> <span class="show__month">{{ruMonth .StartTime}}</span></time> <span class="show__weekday">{{ruWeekday .StartTime}}</span></p>
   <div class="show__head">
     <h2 class="show__title">КвизON №{{.ID}}</h2>
     <p class="show__name">{{.Name}}</p>
   </div>
+  <p class="show__date"><time datetime="{{iso .StartTime}}"><span class="show__day">{{ruDay .StartTime}}</span> <span class="show__month">{{ruMonth .StartTime}}</span></time> <span class="show__weekday">{{ruWeekday .StartTime}}</span></p>
 </div>
 {{end}}
 
@@ -57,7 +58,8 @@
   {{else if eq .State "reserve"}}
   <a class="show__cta" href="/games/{{.ID}}/register">Регистрация в резерв</a>
   {{else if eq .State "waiting"}}
-  <p class="show__cta show__cta--off">Регистрация откроется {{template "countdown" .RegistrationOpenTime}}</p>
+  {{/* та же «Регистрация», что на кнопке, только погашенная; «откроется» — для экранного диктора */}}
+  <p class="show__cta show__cta--off">Регистрация<span class="visually-hidden"> откроется</span> {{template "countdown" .RegistrationOpenTime}}</p>
   {{else if eq .State "closed"}}
   <p class="show__cta show__cta--off">Мест нет</p>
   {{else}}
@@ -76,22 +78,23 @@
 </li>
 {{end}}
 
-{{/* Итог регистрации вместо формы. Ожидает web.registerView */}}
+{{/* Итог регистрации вместо формы. Ожидает web.registerView.
+     В ожидании отсчёт меняется каждую секунду, поэтому живая область там — только заголовок, а не весь итог */}}
 {{define "outcome"}}
-<div class="outcome outcome--{{.Outcome}}{{if or (eq .Outcome "ok") (eq .Outcome "reserve")}} marquee{{end}}" role="status">
+<div class="outcome outcome--{{.Outcome}}{{if or (eq .Outcome "ok") (eq .Outcome "reserve")}} marquee{{end}}"{{if ne .Outcome "waiting"}} role="status"{{end}}>
   {{if eq .Outcome "ok"}}
   <h2>Поздравляем!</h2>
   <p>Первые задания от КвизON успешно выполнены — твоя команда зарегистрирована!</p>
   <p>Напомним, что игра пройдёт в {{ruDateTime .Game.StartTime}}, {{.Game.Location}}. До встречи на игре!</p>
   {{else if eq .Outcome "reserve"}}
-  <h2>Ой 🙈! Вы в резерве</h2>
+  <h2>Ой! Вы в резерве</h2>
   <p>Кажется, места в основном составе закончились. Вашу команду зарегистрировали в резерв.</p>
   <p>Скоро с тобой обязательно свяжутся, а если места освободятся — сообщат и предложат место на игре в порядке очереди.</p>
   {{else if eq .Outcome "closed"}}
-  <h2>Извини 🙈! Мест нет</h2>
+  <h2>Извини! Мест нет</h2>
   <p>Кажется, места на игру закончились. Не расстраивайся, в следующий раз обязательно получится!</p>
   {{else if eq .Outcome "waiting"}}
-  <h2>Регистрация ещё не открыта</h2>
+  <div role="status"><h2>Регистрация ещё не открыта</h2></div>
   {{/* отсчёт в конце абзаца: его цифры разной ширины и не двигают текст после себя */}}
   <p>Она откроется {{template "countdown" .Game.RegistrationOpenTime}}.</p>
   <p>Возвращайся чуть позже.</p>

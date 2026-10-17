@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"quizon/internal/app/usecase"
-	"quizon/internal/generated/postgres/public/model"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -37,7 +36,8 @@ type gameView struct {
 	Admin bool
 }
 
-func newGameView(game model.Games, status usecase.RegistrationStatus, now time.Time) gameView {
+// newGameView - игра для шаблонов; состояние считается из времени и статуса регистрации
+func newGameView(game usecase.GameListItem, now time.Time) gameView {
 	view := gameView{
 		ID:                   game.ID,
 		Name:                 game.Name,
@@ -52,9 +52,9 @@ func newGameView(game model.Games, status usecase.RegistrationStatus, now time.T
 		view.State = stateFinished
 	case now.Before(game.RegistrationOpenTime):
 		view.State = stateWaiting
-	case status == usecase.StatusReserve:
+	case game.Status == usecase.StatusReserve:
 		view.State = stateReserve
-	case status == usecase.StatusClosed:
+	case game.Status == usecase.StatusClosed:
 		view.State = stateClosed
 	}
 
@@ -76,7 +76,7 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 	admin := wb.isAdmin(r)
 	view := homeView{Games: make([]gameView, 0, len(items))}
 	for _, item := range items {
-		gv := newGameView(item.Games, item.Status, now)
+		gv := newGameView(item, now)
 		gv.Admin = admin
 		view.Games = append(view.Games, gv)
 	}
@@ -84,22 +84,22 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageHome, view)
 }
 
-// loadGame - достаёт игру из {id} в пути; при ошибке сам пишет ответ
-func (wb *Web) loadGame(w http.ResponseWriter, r *http.Request) (model.Games, bool) {
+// loadGame - достаёт игру из {id} в пути вместе со статусом регистрации; при ошибке сам пишет ответ
+func (wb *Web) loadGame(w http.ResponseWriter, r *http.Request) (usecase.GameListItem, bool) {
 	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
-		return model.Games{}, false
+		return usecase.GameListItem{}, false
 	}
 
 	game, err := wb.usecase.GetGame(r.Context(), gameID)
 	if errors.Is(err, usecase.ErrNotFound) {
 		http.NotFound(w, r)
-		return model.Games{}, false
+		return usecase.GameListItem{}, false
 	}
 	if err != nil {
 		wb.serverError(w, err)
-		return model.Games{}, false
+		return usecase.GameListItem{}, false
 	}
 
 	return game, true

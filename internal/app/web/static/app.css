@@ -89,7 +89,8 @@
   --pico-form-element-active-border-color: var(--q-gold-light);
   --pico-form-element-focus-color: rgba(244, 218, 106, 0.35);
   --pico-form-element-invalid-border-color: var(--q-danger);
-  --pico-form-element-invalid-active-border-color: var(--q-danger);
+  /* поле с ошибкой в фокусе меняет рамку на золотую, как обычное: ошибку и дальше видно по кольцу и тексту */
+  --pico-form-element-invalid-active-border-color: var(--q-gold-light);
   --pico-form-element-invalid-focus-color: rgba(239, 68, 68, 0.35);
   --pico-del-color: var(--q-danger-text);
   --pico-ins-color: var(--q-gold-light);
@@ -106,12 +107,14 @@
 /* Основа */
 
 html {
-  scrollbar-color: rgba(224, 172, 89, 0.4) var(--q-deep);
+  scrollbar-color: rgba(224, 172, 89, 0.6) var(--q-deep);
 }
 
-/* подвал прижат к низу и на короткой странице входа */
+/* подвал прижат к низу и на короткой странице входа.
+   Колонка не шире экрана: иначе широкая таблица участников раздвигает всю страницу на телефоне */
 body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   min-height: 100vh;
   min-height: 100dvh;
@@ -145,6 +148,27 @@ button,
 :where(select, textarea),
 input:not([type="submit"], [type="button"], [type="reset"], [type="checkbox"], [type="radio"], [type="file"]) {
   --pico-outline-width: 3px;
+}
+
+/* автозаполнение: браузер красит поле своим фоном (Safari — жёлтым) поверх любого !important.
+   Закрываем его внутренней тенью цвета поля, кольцо фокуса Pico ложится второй тенью.
+   none в --pico-box-shadow сломал бы список теней, поэтому прозрачная тень */
+input:-webkit-autofill {
+  --pico-box-shadow: 0 0 transparent;
+  box-shadow: inset 0 0 0 100vmax var(--q-deep), var(--pico-box-shadow);
+  caret-color: #fff;
+  -webkit-text-fill-color: #fff;
+}
+
+/* выбранная часть даты и времени в новой игре: золото вместо системного голубого */
+input::-webkit-datetime-edit-day-field:focus,
+input::-webkit-datetime-edit-month-field:focus,
+input::-webkit-datetime-edit-year-field:focus,
+input::-webkit-datetime-edit-hour-field:focus,
+input::-webkit-datetime-edit-minute-field:focus {
+  border-radius: 2px;
+  background-color: var(--q-gold);
+  color: var(--q-deep);
 }
 
 label {
@@ -288,6 +312,14 @@ body > header.site-header {
   box-shadow: none;
 }
 
+/* на ноутбуке вывески идут парами; последняя без пары не растягивается в широкую, а остаётся как пара над ней */
+@media (min-width: 64rem) {
+  .playbill > .show:last-child:nth-child(odd):not(:first-child) {
+    flex-grow: 0;
+    flex-basis: calc(50% - 1rem);
+  }
+}
+
 /* Вывеска с лампами по краю. Лампы — два слоя без лишней разметки:
    ::before — фаза A, ::after — фаза B, по четыре градиента на каждый край.
    Углы принадлежат верхнему и нижнему ряду, боковые ряды отступают на шаг: фазы чередуются по всему кругу */
@@ -320,8 +352,10 @@ body > header.site-header {
   background-clip: padding-box, padding-box, content-box, content-box;
 }
 
-/* слои: верх, низ, левый край, правый край */
+/* слои: верх, низ, левый край, правый край.
+   --glow — свет ламп на стене вокруг вывески: его рисует ::before, поэтому он вспыхивает вместе с фазой A */
 .marquee::before {
+  box-shadow: var(--glow, none);
   background-image:
     radial-gradient(circle at 25% 50%, var(--a)),
     radial-gradient(circle at 75% 50%, var(--a)),
@@ -337,55 +371,71 @@ body > header.site-header {
     radial-gradient(circle at 50% 75%, var(--b));
 }
 
-/* регистрация открыта — горят все лампы, в резерв — половина.
-   Правила с :has() отдельно: браузер без :has() выбросил бы весь список селекторов */
-.playbill .show--open .show__sign,
+/* регистрация открыта — горят все лампы, в резерв — половина; число на вывеске горит в обоих случаях.
+   --day и --day-glow — цвет и ореол числа, см. .show__day */
+.show--open .show__sign,
 .outcome--ok.marquee {
   --a: var(--bulb-on);
   --b: var(--bulb-on);
+  --glow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
+  --day: var(--q-gold-light);
+  --day-glow: 0 0 0.12em rgba(224, 172, 89, 0.35);
   box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.4);
 }
 
-.playbill .show--reserve .show__sign,
+.show--reserve .show__sign,
 .outcome--reserve.marquee {
   --a: var(--bulb-on);
+  --glow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
+  --day: var(--q-gold-light);
+  --day-glow: 0 0 0.12em rgba(224, 172, 89, 0.35);
   box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.25);
-}
-
-/* свет ламп на стене вокруг вывески; зажигается вместе с фазой A */
-.playbill .show--open .show__sign::before,
-.outcome--ok.marquee::before {
-  box-shadow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
-}
-
-.playbill .show--reserve .show__sign::before,
-.outcome--reserve.marquee::before {
-  box-shadow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
-}
-
-/* на странице регистрации вывеска ждёт итога: состояние мест знает только ответ на регистрацию */
-.booth:has(.outcome--ok) .booth__game .show__sign {
-  --a: var(--bulb-on);
-  --b: var(--bulb-on);
-  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.4);
-}
-
-.booth:has(.outcome--reserve) .booth__game .show__sign {
-  --a: var(--bulb-on);
-  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.25);
-}
-
-.booth:has(.outcome--ok) .booth__game .show__sign::before {
-  box-shadow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
-}
-
-.booth:has(.outcome--reserve) .booth__game .show__sign::before {
-  box-shadow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
 }
 
 .show--finished .show__sign {
   --a: var(--bulb-dead);
   --b: var(--bulb-dead);
+}
+
+/* на странице регистрации вывеска горит по состоянию игры, как на афише. После отправки htmx меняет только #registration,
+   и вывеску подстраивают под итог правила ниже: по одному на итог, браузер без :has() выбросил бы весь список селекторов.
+   initial возвращает переменной значение по умолчанию из var() */
+.booth:has(.outcome--ok) .booth__game .show__sign {
+  --a: var(--bulb-on);
+  --b: var(--bulb-on);
+  --glow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
+  --day: var(--q-gold-light);
+  --day-glow: 0 0 0.12em rgba(224, 172, 89, 0.35);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.4);
+}
+
+.booth:has(.outcome--reserve) .booth__game .show__sign {
+  --a: var(--bulb-on);
+  --b: var(--bulb-off);
+  --glow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
+  --day: var(--q-gold-light);
+  --day-glow: 0 0 0.12em rgba(224, 172, 89, 0.35);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.25);
+}
+
+/* мест не осталось или регистрация ещё не открылась — свет гаснет */
+.booth:has(.outcome--closed, .outcome--waiting) .booth__game .show__sign {
+  --a: var(--bulb-off);
+  --b: var(--bulb-off);
+  --glow: initial;
+  --day: initial;
+  --day-glow: initial;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* форму открыли до начала игры, а отправили после — лампы перегорели */
+.booth:has(.outcome--finished) .booth__game .show__sign {
+  --a: var(--bulb-dead);
+  --b: var(--bulb-dead);
+  --glow: initial;
+  --day: initial;
+  --day-glow: initial;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* Вывеска игры */
@@ -398,10 +448,12 @@ body > header.site-header {
   padding: 2rem var(--inset) var(--inset);
 }
 
-/* дата: большое число, справа месяц и день недели; время сюда не входит */
+/* дата: большое число, справа месяц и день недели; время сюда не входит.
+   В разметке дата идёт после названия, чтобы читалась вместе с ним, а на вывеске стоит первой */
 .show__date {
   display: grid;
   flex: none;
+  order: -1;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: 1fr auto;
   grid-template-areas: "day month" "day weekday";
@@ -413,17 +465,20 @@ body > header.site-header {
   display: contents;
 }
 
+/* число на погашенной вывеске серое; на горящей — сплошное золото с ореолом, как у ламп (--day и --day-glow).
+   Заливка сплошная, без точек: ряд точек, обрезанный по глифу, ломал контур цифр */
 .show__day {
   grid-area: day;
   align-self: end;
   margin-left: -0.04em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--day, rgba(255, 255, 255, 0.5));
   font-size: 4.5rem;
   font-size: clamp(4.5rem, 30cqi, 6.5rem);
   font-weight: 700;
   line-height: 0.8;
   letter-spacing: -0.04em;
   white-space: nowrap;
+  text-shadow: var(--day-glow, none);
 }
 
 .show__month {
@@ -442,42 +497,6 @@ body > header.site-header {
   color: var(--q-muted);
   font-size: 1rem;
   line-height: 1.3;
-}
-
-/* число на горящей вывеске — из ламп: точки поверх золотой подложки, подложка одна даёт 5:1.
-   Сам элемент никогда не анимируется и не трансформируется: Safari тогда теряет обрезку по тексту */
-.show__sign {
-  --day-lamps:
-    radial-gradient(circle, #fff 0 0.01em, var(--q-gold-light) 0.02em, rgba(244, 218, 106, 0) 0.032em),
-    linear-gradient(rgba(224, 172, 89, 0.7), rgba(224, 172, 89, 0.7));
-}
-
-.playbill :is(.show--open, .show--reserve) .show__day {
-  color: var(--q-gold-light);
-}
-
-.booth:has(.outcome--ok, .outcome--reserve) .booth__game .show__day {
-  color: var(--q-gold-light);
-}
-
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .playbill :is(.show--open, .show--reserve) .show__day {
-    color: transparent;
-    background-image: var(--day-lamps);
-    background-size: 0.075em 0.075em, 100% 100%;
-    background-repeat: repeat, no-repeat;
-    -webkit-background-clip: text;
-    background-clip: text;
-  }
-
-  .booth:has(.outcome--ok, .outcome--reserve) .booth__game .show__day {
-    color: transparent;
-    background-image: var(--day-lamps);
-    background-size: 0.075em 0.075em, 100% 100%;
-    background-repeat: repeat, no-repeat;
-    -webkit-background-clip: text;
-    background-clip: text;
-  }
 }
 
 .show__head {
@@ -535,6 +554,7 @@ body > header.site-header {
   font-size: 1.0625rem;
   font-weight: 500;
   line-height: 1.3;
+  text-wrap: balance;
 }
 
 .show__facts > div:last-child dd {
@@ -599,18 +619,23 @@ a.show__cta:active {
   color: var(--q-deep);
 }
 
-/* регистрация закрыта или ещё не открыта — строка состояния, а не кнопка */
+/* регистрация ещё не открыта или мест нет — та же плашка, что и кнопка, только погашенная:
+   низ у вывесок всегда одинаковый, а состояние видно по свету, как у ламп.
+   Подпись слева, отсчёт справа; на узком экране отсчёт переносится под подпись внутри плашки */
 .show__cta--off {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: rgba(10, 18, 33, 0.55);
   color: rgba(255, 255, 255, 0.8);
-  font-size: 1rem;
   font-weight: 500;
 }
 
 .show--closed .show__cta--off {
   color: rgba(255, 255, 255, 0.86);
-  font-size: 1.125rem;
   font-weight: 700;
 }
 
@@ -627,27 +652,20 @@ a.show__cta:active {
   margin-top: 0.75rem;
 }
 
-/* Обратный отсчёт: цифры шрифта разной ширины, поэтому у таблички постоянная ширина,
-   а текст прижат влево — сдвигаются только последние цифры */
+/* Обратный отсчёт: цифры шрифта разной ширины, поэтому у отсчёта постоянная ширина,
+   а текст прижат влево — сдвигаются только последние цифры.
+   min-width меряет сам текст, без полей и рамки: «через ЧЧ:ММ:СС» занимает до 7.42em */
 
 .countdown {
+  box-sizing: content-box;
   font-weight: 700;
   white-space: nowrap;
 }
 
+/* в погашенной плашке отсчёт — золотые цифры того же размера, что подпись: высота как у кнопки */
 .show__cta--off .countdown {
-  display: block;
-  width: fit-content;
   min-width: 7.6em;
-  margin-top: 0.5rem;
-  padding: 0.25rem 0.6rem 0.3rem;
-  border: 1px solid rgba(224, 172, 89, 0.4);
-  border-radius: var(--q-radius-s);
-  background: rgba(224, 172, 89, 0.1);
   color: var(--q-gold-light);
-  font-size: 1.125rem;
-  font-size: min(1.375rem, 6.6cqi);
-  line-height: 1.15;
   text-align: left;
 }
 
@@ -691,6 +709,59 @@ a.show__cta:active {
 
   .playbill .show__facts > div:last-child dd {
     font-size: 2rem;
+  }
+}
+
+/* Телефон: вывеска ниже, чтобы с шапкой на первый экран помещались и факты, и кнопка.
+   Число слева во всю высоту, справа столбиком месяц, день недели, название и лига.
+   Высота — четыре шага ламп (144px): по бокам три пары ламп того же шага, что сверху и снизу */
+@media (max-width: 35.99rem) {
+  .playbill .show {
+    --inset: 1.625rem;
+  }
+
+  .playbill .show__sign {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "day month" "day weekday" "day head";
+    align-content: center;
+    gap: 0 0.75rem;
+    min-height: calc(var(--tile) * 4);
+    padding: 1.5rem var(--inset);
+  }
+
+  /* число, месяц и день недели встают в сетку вывески рядом с названием */
+  .playbill .show__date {
+    display: contents;
+  }
+
+  /* до 7.25rem число не выше столбика справа; на 320px остаётся место для «КвизON №128» */
+  .playbill .show__day {
+    font-size: 4.5rem;
+    font-size: clamp(4.5rem, 33cqi, 7.25rem);
+  }
+
+  .playbill .show__month {
+    font-size: 1.25rem;
+  }
+
+  .playbill .show__weekday {
+    margin-top: 0.125rem;
+    font-size: 0.9375rem;
+  }
+
+  .playbill .show__head {
+    grid-area: head;
+    margin-top: 0.5rem;
+  }
+
+  .playbill .show__title {
+    font-size: 1.125rem;
+  }
+
+  .playbill .show__name {
+    margin-top: 0.125rem;
+    font-size: 0.9375rem;
   }
 }
 
@@ -739,9 +810,11 @@ a.show__cta:active {
   line-height: 1.35;
 }
 
+/* дата с годом не рвётся: узкой строке остаётся перенос после запятой, перед днём недели */
 .archive__date time {
   color: rgba(255, 255, 255, 0.86);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .archive__name {
@@ -765,9 +838,10 @@ a.show__cta:active {
   color: var(--q-gold-light);
 }
 
+/* колонка дат по самой длинной дате с днём недели: «30 сентября 2030, понедельник» — 14.86em */
 @media (min-width: 48rem) {
   .archive__row {
-    grid-template-columns: 12.5rem minmax(0, 1fr) auto;
+    grid-template-columns: 15rem minmax(0, 1fr) auto;
     grid-template-areas: "date name teams";
     align-items: baseline;
   }
@@ -788,6 +862,7 @@ a.show__cta:active {
   font-size: 1.75rem;
   line-height: 1.2;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .empty p {
@@ -860,14 +935,18 @@ a.show__cta:active {
   fill: var(--q-gold);
 }
 
-/* на телефоне вывеска компактная: до формы недалеко листать */
+/* на телефоне вывеска компактная: до формы недалеко листать.
+   Высота — целое число шагов ламп, как у вывесок на афише: по бокам лампы стоят с тем же шагом, что сверху и снизу.
+   Лишняя высота делится поровну над и под надписями */
 .booth__game > * {
   --inset: 1.625rem;
 }
 
 .booth__game .show__sign {
-  gap: 1rem 1.25rem;
-  padding: 1.625rem var(--inset);
+  align-content: center;
+  gap: 0.5rem 1.25rem;
+  min-height: calc(var(--tile) * 4);
+  padding: 1.5rem var(--inset);
 }
 
 .booth__game .show__day {
@@ -893,7 +972,13 @@ a.show__cta:active {
   font-size: 0.9375rem;
 }
 
-@container show (min-width: 20rem) {
+/* на телефонах 360–375px название остаётся под датой: рядом ему хватало меньше 110px, и слова рвались.
+   Рядом с датой вывеска ниже — три шага ламп */
+@container show (min-width: 22rem) {
+  .booth__game .show__sign {
+    min-height: calc(var(--tile) * 3);
+  }
+
   .booth__game .show__head {
     flex: 1 1 0;
     text-align: right;
@@ -922,6 +1007,7 @@ a.show__cta:active {
 
   .booth__game .show__sign {
     gap: 1.25rem 1.5rem;
+    min-height: calc(var(--tile) * 6);
     padding: 2rem var(--inset) var(--inset);
   }
 
@@ -975,9 +1061,13 @@ a.show__cta:active {
   transform: translateY(1px);
 }
 
-/* пока htmx отправляет форму, по низу кнопки бегут огоньки */
-.booth__form form.htmx-request button[type="submit"] {
+/* пока htmx отправляет форму, по низу кнопки бегут огоньки.
+   Курсор — на форме: отключённая кнопка у Pico не ловит указатель */
+.booth__form form.htmx-request {
   cursor: progress;
+}
+
+.booth__form form.htmx-request button[type="submit"] {
   background-image: radial-gradient(circle, rgba(10, 18, 33, 0.6) 0 0.12rem, rgba(10, 18, 33, 0) 0.16rem);
   background-position: 0 calc(100% - 0.35rem);
   background-size: 0.75rem 0.5rem;
@@ -993,7 +1083,7 @@ a.show__cta:active {
   color: var(--q-danger-soft);
 }
 
-/* вход и новая игра: форма стоит прямо на сцене, без панели */
+/* вход и новая игра: заголовок на погашенной вывеске, форма под ней прямо на сцене */
 .sheet {
   max-width: 32rem;
   margin: 0 auto;
@@ -1006,6 +1096,21 @@ a.show__cta:active {
 .sheet > h1,
 .sheet > hgroup {
   margin-bottom: 1.5rem;
+}
+
+/* высота вывески — целое число шагов ламп, тогда по бокам лампы стоят с тем же шагом, что сверху и снизу */
+.sheet__sign {
+  display: grid;
+  align-content: center;
+  min-height: calc(var(--tile) * 3);
+  padding: 1.375rem 1.875rem;
+  text-align: center;
+}
+
+/* у входа под заголовком подпись, вывеска на шаг выше */
+hgroup.sheet__sign {
+  gap: 0.375rem;
+  min-height: calc(var(--tile) * 4);
 }
 
 /* Итог регистрации */
@@ -1023,6 +1128,11 @@ a.show__cta:active {
   font-size: 1.375rem;
   line-height: 1.2;
   letter-spacing: -0.01em;
+}
+
+/* app.js ставит фокус на заголовок итога после htmx-замены, чтобы его прочитал экранный диктор; рамка тут не нужна */
+.outcome h2[tabindex="-1"]:focus {
+  outline: none;
 }
 
 .outcome p:last-child {
@@ -1079,6 +1189,15 @@ a.show__cta:active {
   color: var(--q-muted);
 }
 
+/* прокрутка таблицы — опора для абсолютно позиционированного содержимого. Без неё скрытая подпись колонки
+   удаления (.visually-hidden) привязывается к документу и стоит у правого края таблицы, около 700px:
+   на телефоне документ становится шире экрана, браузер растягивает под него область фиксированных элементов,
+   и окно удаления уезжает вправо вниз */
+#teams .overflow-auto {
+  position: relative;
+}
+
+/* над таблицей счётчик, места из настроек игры и выгрузка */
 .teams-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1097,9 +1216,59 @@ a.show__cta:active {
   font-weight: 700;
 }
 
+/* места из настроек игры: на телефоне и узком планшете отдельной строкой под счётчиком и кнопкой выгрузки.
+   Подпись и число — как в фактах под вывеской */
+.teams-places {
+  display: flex;
+  flex-basis: 100%;
+  order: 1;
+  gap: 1rem;
+  margin: 0;
+}
+
+.teams-places > div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.teams-places dt {
+  color: var(--q-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.teams-places dd {
+  margin: 0;
+  color: var(--q-gold-light);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* от 768px всё в одну строку: места сразу за счётчиком, кнопка справа. Меньше 768px строка не помещается,
+   и кнопка осталась бы одна во втором ряду. «Команд: N», числа мест и надпись на кнопке — на одной базовой линии.
+   Черта отделяет места от счётчика, иначе числа подряд читаются как «3 2 1» */
+@media (min-width: 48rem) {
+  .teams-bar {
+    align-items: last baseline;
+  }
+
+  .teams-places {
+    flex-basis: auto;
+    order: 0;
+    margin-right: auto;
+    padding-left: 1rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* auto слева держит кнопку справа, даже если она перенесётся в свой ряд */
 .teams-bar [role="button"] {
   width: auto;
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 0.45rem 0.9rem;
   border-width: 1px;
   font-size: 0.875rem;
@@ -1270,15 +1439,16 @@ a.show__cta:active {
   overflow: hidden;
 }
 
+/* окно — погашенная вывеска: гнёзда ламп по краю, кнопки внутри вывески.
+   Фон окна и затемнение вокруг почти одного цвета, край держит красная кайма: 3.4:1 к затемнению */
 .confirm > article {
   max-width: 26rem;
-  padding: 1.5rem 1.25rem 0;
+  padding: 2rem 1.875rem 1.875rem;
   border: 0;
-  border-top: 3px solid var(--q-danger);
   border-radius: var(--q-radius);
-  background: var(--q-surface);
+  background: var(--q-deep);
   box-shadow:
-    0 0 0 1px rgba(239, 68, 68, 0.45),
+    0 0 0 1px rgba(239, 68, 68, 0.8),
     0 1.5rem 3rem rgba(10, 18, 33, 0.6);
 }
 
@@ -1295,11 +1465,12 @@ a.show__cta:active {
   color: var(--q-muted);
 }
 
+/* подвал Pico — полоса другого цвета во всю ширину, она легла бы на нижний ряд ламп */
 .confirm > article > footer {
-  margin: 0 -1.25rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0 0 var(--q-radius) var(--q-radius);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .confirm form {
@@ -1340,17 +1511,6 @@ a.show__cta:active {
 .confirm .confirm__danger:hover {
   border-color: var(--q-danger-deeper);
   background: var(--q-danger-deeper);
-}
-
-@media (min-width: 36rem) {
-  .confirm > article {
-    padding: 2rem 2rem 0;
-  }
-
-  .confirm > article > footer {
-    margin: 0 -2rem;
-    padding: 1.25rem 2rem;
-  }
 }
 
 /* Подвал: край сцены с рампой */
@@ -1439,20 +1599,24 @@ a.show__cta:active {
     animation: fade-in 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s backwards;
   }
 
-  /* афиша: вывески проявляются, лампы вспыхивают фазой A, через 120 мс фазой B, число загорается последним */
+  /* афиша: вывески проявляются, лампы вспыхивают фазой A, через 120 мс фазой B, число загорается последним.
+     Вывеска на странице регистрации загорается так же, как первая на афише */
   .playbill > .show {
     animation: fade-in 0.5s ease-out calc(200ms + var(--d, 0ms)) backwards;
   }
 
-  .playbill > :is(.show--open, .show--reserve) > .show__sign::before {
+  .playbill > :is(.show--open, .show--reserve) > .show__sign::before,
+  .booth__game:is(.show--open, .show--reserve) > .show__sign::before {
     animation: power-on 0.9s linear calc(550ms + var(--d, 0ms)) backwards;
   }
 
-  .playbill > .show--open > .show__sign::after {
+  .playbill > .show--open > .show__sign::after,
+  .booth__game.show--open > .show__sign::after {
     animation: power-on 0.9s linear calc(670ms + var(--d, 0ms)) backwards;
   }
 
-  .playbill > :is(.show--open, .show--reserve) .show__date {
+  .playbill > :is(.show--open, .show--reserve) .show__day,
+  .booth__game:is(.show--open, .show--reserve) .show__day {
     animation: number-on 0.5s ease-out calc(900ms + var(--d, 0ms)) backwards;
   }
 
@@ -1494,7 +1658,8 @@ a.show__cta:active {
     animation: power-on 0.9s linear 0.15s backwards;
   }
 
-  /* на ноутбуке то же самое делает вывеска слева */
+  /* на ноутбуке то же самое делает вывеска слева. Уже горевшая с загрузки не вспыхивает заново:
+     power-on с тем же именем браузер продолжает, а не запускает снова, и лампы просто бегут по кругу */
   @media (min-width: 64rem) {
     .booth:has(.outcome--ok) .booth__game .show__sign::before {
       animation:
@@ -1598,12 +1763,18 @@ a.show__cta:active {
   .outcome,
   #teams,
   a.show__cta,
-  .show__cta--off .countdown {
+  .show__cta--off {
     border: 1px solid CanvasText;
   }
 
   .confirm > article {
     border: 2px solid CanvasText;
+  }
+
+  /* фокус полей у Pico — тень, а теней в этом режиме нет */
+  :where(input, select, textarea):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 
   body::before,

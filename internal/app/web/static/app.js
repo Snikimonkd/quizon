@@ -68,5 +68,18 @@
   });
 })();
 
+// После htmx-замены #registration фокус падает на <body>: переводим его на первое поле с ошибкой
+// или на заголовок итога, чтобы экранный диктор сразу прочитал, чем кончилась отправка
+document.addEventListener("htmx:after:swap", () => {
+  const target = document.querySelector('#registration [aria-invalid="true"], #registration .outcome h2');
+  if (!target) {
+    return;
+  }
+  if (target.tagName === "H2") {
+    target.tabIndex = -1;
+  }
+  target.focus();
+});
+
 // iOS Safari включает :active только на страницах с обработчиком касаний, без него нажатие на кнопку ничем не видно
 document.addEventListener("touchstart", () => {}, { passive: true });

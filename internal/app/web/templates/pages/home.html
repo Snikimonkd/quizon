@@ -20,7 +20,8 @@
 {{if $past}}
 <section class="archive" aria-labelledby="archive-title">
   <h2 id="archive-title">Прошедшие игры</h2>
-  <ul class="archive__list">
+  {{- /* role: у строк архива нет маркеров, и без него Safari не объявляет список списком */}}
+  <ul class="archive__list" role="list">
     {{range .Page.Games}}{{if eq .State "finished"}}{{template "archive_row" .}}{{end}}{{end}}
   </ul>
 </section>
