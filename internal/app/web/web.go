@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"math"
 	"net/http"
 	"path"
 	"strings"
@@ -141,7 +142,34 @@ var (
 	}
 	weekdays      = [...]string{"воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
 	shortWeekdays = [...]string{"вс", "пн", "вт", "ср", "чт", "пт", "сб"}
+	// «откроется в субботу», «во вторник»
+	onWeekdays = [...]string{
+		"в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу",
+	}
 )
+
+// ruOpensAt - когда откроется регистрация, словами относительно now по Москве: «сегодня в 12:00»,
+// «завтра в 20:00», в пределах недели «в субботу в 12:00», дальше «25 октября в 12:00».
+// Меньше чем за сутки app.js заменяет текст отсчётом
+func ruOpensAt(open, now time.Time) string {
+	open, now = open.In(utils.LocMsk), now.In(utils.LocMsk)
+	at := " в " + open.Format("15:04")
+
+	// разница в календарных днях: переход через полночь по Москве — уже «завтра», даже если до открытия минуты
+	day := func(t time.Time) time.Time { return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, utils.LocMsk) }
+	days := int(math.Round(day(open).Sub(day(now)).Hours() / 24))
+
+	switch {
+	case days <= 0:
+		return "сегодня" + at
+	case days == 1:
+		return "завтра" + at
+	case days < 7:
+		return onWeekdays[open.Weekday()] + at
+	default:
+		return fmt.Sprintf("%d %s%s", open.Day(), months[open.Month()-1], at)
+	}
+}
 
 func funcs(assets assets) template.FuncMap {
 	return template.FuncMap{

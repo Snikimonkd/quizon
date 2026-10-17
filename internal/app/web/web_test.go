@@ -285,13 +285,14 @@ func TestHome(t *testing.T) {
 		body := rec.Body.String()
 		assertContains(t, body,
 			"<!doctype html>",
-			`href="/games/1/register">Регистрация</a>`,
+			`href="/games/1/register">Регистрация открыта</a>`,
 			`href="/games/2/register">Регистрация в резерв</a>`,
-			"Мест нет",
+			`<p class="show__cta show__cta--off">Регистрация закрыта <span class="show__cta-value">мест нет</span></p>`,
 			"data-countdown",
-			// у ожидающей игры внизу та же плашка «Регистрация», погашенная, с отсчётом до открытия
-			`<p class="show__cta show__cta--off">Регистрация<span class="visually-hidden"> откроется</span>`+
-				` <time class="countdown"`,
+			// у ожидающей игры внизу такая же плашка, погашенная, с отсчётом до открытия
+			`<p class="show__cta show__cta--off">Регистрация откроется <time class="countdown"`,
+			// до открытия час: без JS сервер пишет время словами, отсчёт включит app.js
+			`data-countdown>сегодня в 13:00</time></p>`,
 			"Игра завершена",
 			// в углу вывески только дата и день недели, времени там нет
 			`<span class="show__day">18</span> <span class="show__month">октября</span></time>`+
@@ -572,6 +573,7 @@ func TestRegistrationPageStates(t *testing.T) {
 				"data-countdown",
 				`<div class="outcome outcome--waiting">`,
 				`<div role="status"><h2>Регистрация ещё не открыта</h2></div>`,
+				`data-countdown>сегодня в 13:00</time>.</p>`,
 			},
 		},
 		{
@@ -1174,6 +1176,49 @@ func TestLoginSign(t *testing.T) {
 	assertContains(t, body, `<hgroup class="sheet__sign marquee">`, "<h1>Вход</h1>", "<p>Для организаторов игр</p>")
 	if strings.Index(body, "sheet__sign") > strings.Index(body, `<form method="post" action="/login">`) {
 		t.Error("sign must go before the form")
+	}
+}
+
+func TestRuOpensAt(t *testing.T) {
+	t.Parallel()
+
+	// testNow — пятница, 16 октября 2026, 12:00 по Москве
+	at := func(month time.Month, day, hour, minute int) time.Time {
+		return time.Date(2026, month, day, hour, minute, 0, 0, utils.LocMsk)
+	}
+	tests := []struct {
+		name string
+		now  time.Time
+		open time.Time
+		want string
+	}{
+		{name: "same day", now: testNow, open: at(time.October, 16, 18, 0), want: "сегодня в 18:00"},
+		{name: "next day", now: testNow, open: at(time.October, 17, 20, 0), want: "завтра в 20:00"},
+		{name: "weekday", now: testNow, open: at(time.October, 18, 12, 0), want: "в воскресенье в 12:00"},
+		{name: "tuesday takes во", now: testNow, open: at(time.October, 20, 12, 0), want: "во вторник в 12:00"},
+		{name: "last weekday of the week", now: testNow, open: at(time.October, 22, 23, 30), want: "в четверг в 23:30"},
+		// через неделю тот же день недели был бы двусмысленным: уже дата
+		{name: "a week ahead", now: testNow, open: at(time.October, 23, 12, 0), want: "23 октября в 12:00"},
+		{name: "next month", now: testNow, open: at(time.November, 2, 18, 0), want: "2 ноября в 18:00"},
+		// за 20 минут до полуночи открытие в 00:10 — уже «завтра»
+		{
+			name: "after midnight", now: at(time.October, 16, 23, 50),
+			open: at(time.October, 17, 0, 10), want: "завтра в 00:10",
+		},
+		// 21:30 UTC 16 октября — по Москве уже 00:30 17-го
+		{
+			name: "utc input", now: testNow,
+			open: time.Date(2026, time.October, 16, 21, 30, 0, 0, time.UTC), want: "завтра в 00:30",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := ruOpensAt(tt.open, tt.now); got != tt.want {
+				t.Errorf("ruOpensAt() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
