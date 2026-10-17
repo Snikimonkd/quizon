@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -23,23 +22,6 @@ func TestNewServerAddr(t *testing.T) {
 	}
 	if got := NewServer(handler, true).Addr; got != ":8000" {
 		t.Errorf("debug addr = %q, want all interfaces", got)
-	}
-}
-
-func TestDebug(t *testing.T) {
-	// значение не важно, достаточно самой переменной
-	t.Setenv("DEBUG", "")
-	if !Debug() {
-		t.Error("DEBUG is set, Debug() must be true")
-	}
-
-	// t.Setenv вернёт прежнее значение после теста
-	err := os.Unsetenv("DEBUG")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if Debug() {
-		t.Error("DEBUG is unset, Debug() must be false")
 	}
 }
 

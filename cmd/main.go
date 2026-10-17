@@ -15,18 +15,18 @@ import (
 )
 
 func main() {
-	debug := config.Debug()
-	logger.Setup(debug)
-	slog.Info("runtime start", "debug", debug)
-
-	domain, err := config.Domain()
+	// формат логов задаёт конфиг, поэтому его ошибку пишет логгер по умолчанию
+	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal("can't read config", err)
 	}
 
+	logger.Setup(cfg.Debug)
+	slog.Info("runtime start", "debug", cfg.Debug)
+
 	ctx := context.Background()
 
-	db, err := config.ConnectToPostgres(ctx)
+	db, err := config.ConnectToPostgres(ctx, cfg.PgDSN)
 	if err != nil {
 		logger.Fatal("can't start postgres", err)
 	}
@@ -36,12 +36,12 @@ func main() {
 
 	repository := repository.NewRepository(db)
 	usecase := usecase.NewUsecase(repository, sessions, clock.New())
-	delivery, err := delivery.New(usecase, domain)
+	delivery, err := delivery.New(usecase, cfg.Domain)
 	if err != nil {
 		logger.Fatal("can't init delivery ui", err)
 	}
 
-	server := config.NewServer(delivery, debug)
+	server := config.NewServer(delivery, cfg.Debug)
 
 	slog.Info("starting server", "addr", server.Addr)
 	err = server.ListenAndServe()

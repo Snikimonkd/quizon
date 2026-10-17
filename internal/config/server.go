@@ -1,10 +1,8 @@
 package config
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,24 +15,7 @@ const (
 	debugAddr string = `:8000`
 )
 
-// Debug - запуск для локальной разработки: задана переменная окружения DEBUG, значение не важно
-func Debug() bool {
-	_, ok := os.LookupEnv("DEBUG")
-
-	return ok
-}
-
-// Domain - домен куки входа из переменной окружения DOMAIN: localhost локально, quiz-on.ru на проде
-func Domain() (string, error) {
-	domain := os.Getenv("DOMAIN")
-	if domain == "" {
-		return "", errors.New("empty domain in env variable")
-	}
-
-	return domain, nil
-}
-
-// NewServer - собирает http-сервер вокруг handler. debug — см. Debug
+// NewServer - собирает http-сервер вокруг handler. debug — см. Config.Debug
 func NewServer(handler http.Handler, debug bool) *http.Server {
 	log := slog.Default()
 
