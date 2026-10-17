@@ -16,16 +16,36 @@ jobs:
       GOOSE_VERSION: v3.29.0
     steps:
       - uses: actions/checkout@v7
+        with:
+          # для диффа с прежним коммитом main нужна история
+          fetch-depth: 0
+
+      # из пайплайна катим, только если пуш добавил файлы в migrations: иначе остальные шаги пропускаются.
+      # Ручной запуск катит всегда. Прежнего коммита нет (новая ветка, переписанная история) — тоже катим
+      - name: check for new migrations
+        id: check
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null &&
+            git diff --quiet --diff-filter=ACR "$BEFORE" "$GITHUB_SHA" -- migrations/; then
+            echo "no new migrations since $BEFORE, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: set up Go
+        if: steps.check.outputs.skip != 'true'
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
       - name: install goose
+        if: steps.check.outputs.skip != 'true'
         run: go install github.com/pressly/goose/v3/cmd/goose@$GOOSE_VERSION
 
       - name: set up ssh
+        if: steps.check.outputs.skip != 'true'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
@@ -33,9 +53,11 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
 
       - name: open tunnel to postgres
+        if: steps.check.outputs.skip != 'true'
         run: ssh -f -N -o ExitOnForwardFailure=yes -L 5432:localhost:5432 "$SSH_TARGET"
 
       - name: run migrations
+        if: steps.check.outputs.skip != 'true'
         env:
           PG_DSN: ${{ secrets.PG_DSN }}
         run: goose -dir migrations postgres "$PG_DSN" up
