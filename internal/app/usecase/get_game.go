@@ -14,7 +14,7 @@ type GetGameRepository interface {
 	RegistrationsAmount(ctx context.Context, gameID int64) (int64, error)
 }
 
-// GetGame - получить игру по id и статус регистрации на неё, как в списке игр
+// GetGame - получить игру по id и статус регистрации на неё сейчас, как в списке игр
 func (u usecase) GetGame(ctx context.Context, gameID int64) (GameListItem, error) {
 	game, err := u.repository.GetGame(ctx, gameID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -31,6 +31,6 @@ func (u usecase) GetGame(ctx context.Context, gameID int64) (GameListItem, error
 
 	return GameListItem{
 		Games:  game,
-		Status: registrationStatus(registered, game.MainAmount, game.ReserveAmount),
+		Status: gameStatus(game, registered, u.clock.Now()),
 	}, nil
 }
