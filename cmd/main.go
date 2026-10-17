@@ -6,9 +6,9 @@ import (
 
 	"github.com/benbjohnson/clock"
 
+	"quizon/internal/app/delivery"
 	"quizon/internal/app/repository"
 	"quizon/internal/app/usecase"
-	"quizon/internal/app/web"
 	"quizon/internal/config"
 	"quizon/internal/pkg/cache"
 	"quizon/internal/pkg/logger"
@@ -36,13 +36,12 @@ func main() {
 
 	repository := repository.NewRepository(db)
 	usecase := usecase.NewUsecase(repository, sessions, clock.New())
-
-	webUI, err := web.New(usecase, domain)
+	delivery, err := delivery.New(usecase, domain)
 	if err != nil {
-		logger.Fatal("can't init web ui", err)
+		logger.Fatal("can't init delivery ui", err)
 	}
 
-	server := config.NewServer(webUI.Routes, debug)
+	server := config.NewServer(delivery.Routes, debug)
 
 	slog.Info("starting server", "addr", server.Addr)
 	err = server.ListenAndServe()

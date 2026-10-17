@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"bytes"
@@ -41,8 +41,8 @@ type Usecase interface {
 	Logout(token string)
 }
 
-// Web - html-интерфейс сервиса
-type Web struct {
+// delivery - html-интерфейс сервиса
+type delivery struct {
 	usecase Usecase
 	// domain - домен куки входа
 	domain string
@@ -51,8 +51,8 @@ type Web struct {
 	assets assets
 }
 
-// New - конструктор для Web. domain - домен куки входа: localhost локально, quiz-on.ru на проде
-func New(uc Usecase, domain string) (*Web, error) {
+// New - конструктор для delivery. domain - домен куки входа: localhost локально, quiz-on.ru на проде
+func New(uc Usecase, domain string) (*delivery, error) {
 	static, err := fs.Sub(files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("can't open static files: %w", err)
@@ -68,7 +68,7 @@ func New(uc Usecase, domain string) (*Web, error) {
 		return nil, err
 	}
 
-	return &Web{
+	return &delivery{
 		usecase: uc,
 		domain:  domain,
 		pages:   pages,
@@ -78,7 +78,7 @@ func New(uc Usecase, domain string) (*Web, error) {
 }
 
 // Routes - регистрирует html-страницы и статику
-func (wb *Web) Routes(r chi.Router) {
+func (wb *delivery) Routes(r chi.Router) {
 	r.Handle("/static/*", http.StripPrefix("/static/", wb.assets.handler(wb.static)))
 
 	r.Get("/", wb.home)
@@ -224,7 +224,7 @@ type layoutData struct {
 }
 
 // renderPage - рендерит страницу целиком: общий каркас с заголовком страницы и её данные view
-func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p page, view any) {
+func (wb *delivery) renderPage(w http.ResponseWriter, r *http.Request, status int, p page, view any) {
 	data := layoutData{
 		Title: p.title(),
 		Admin: wb.isAdmin(r),
@@ -236,11 +236,11 @@ func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p 
 }
 
 // renderBlock - рендерит один блок страницы, для ответов на htmx-запросы
-func (wb *Web) renderBlock(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
+func (wb *delivery) renderBlock(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
 	wb.execute(w, r, status, p, block, data)
 }
 
-func (wb *Web) execute(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
+func (wb *delivery) execute(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
 	tmpl, ok := wb.pages[p]
 	if !ok {
 		slog.ErrorContext(r.Context(), "unknown page template", "page", string(p), "request_id", requestID(r))
@@ -267,7 +267,7 @@ func requestID(r *http.Request) string {
 	return middleware.GetReqID(r.Context())
 }
 
-func (wb *Web) serverError(w http.ResponseWriter, r *http.Request, err error) {
+func (wb *delivery) serverError(w http.ResponseWriter, r *http.Request, err error) {
 	slog.ErrorContext(r.Context(), "request failed", "err", err, "request_id", requestID(r))
 	http.Error(w, "Что-то пошло не так. Попробуйте ещё раз через минуту.", http.StatusInternalServerError)
 }

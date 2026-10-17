@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"quizon/internal/app/usecase"
-	"quizon/internal/generated/postgres/public/model"
-
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/samber/lo"
+
+	"quizon/internal/app/usecase"
+	"quizon/internal/generated/postgres/public/model"
 )
 
 // outcome - чем закончилась попытка зарегистрироваться:
@@ -131,7 +131,7 @@ type registerView struct {
 	Outcome outcome
 }
 
-func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) registrationPage(w http.ResponseWriter, r *http.Request) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return
@@ -149,7 +149,7 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageRegister, view)
 }
 
-func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) register(w http.ResponseWriter, r *http.Request) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return
@@ -205,7 +205,7 @@ func closedOutcome(game gameView) outcome {
 	return ""
 }
 
-func (wb *Web) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
+func (wb *delivery) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
 	if isHTMX(r) {
 		wb.renderBlock(w, r, status, pageRegister, "registration", view)
 		return

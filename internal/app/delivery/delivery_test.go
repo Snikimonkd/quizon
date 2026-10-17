@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -20,9 +20,9 @@ import (
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/mock/gomock"
 
+	"quizon/internal/app/delivery/mock"
 	"quizon/internal/app/usecase"
 	usecasemock "quizon/internal/app/usecase/mock"
-	"quizon/internal/app/web/mock"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 	"quizon/internal/utils"
@@ -117,7 +117,7 @@ func newTestRouter(t *testing.T, uc *mock.MockUsecase) http.Handler {
 
 	wb, err := New(uc, testDomain)
 	if err != nil {
-		t.Fatalf("can't create web: %v", err)
+		t.Fatalf("can't create delivery: %v", err)
 	}
 
 	r := chi.NewRouter()
@@ -380,7 +380,7 @@ func TestRegister(t *testing.T) {
 			wantClass: `class="outcome outcome--waiting">`,
 		},
 		{
-			// игра началась, пока капитан заполнял анкету: время проверяет usecase, web показывает итог
+			// игра началась, пока капитан заполнял анкету: время проверяет usecase, delivery показывает итог
 			name: "game started", status: usecase.StatusFinished, wantText: "Игра уже прошла",
 			wantClass: `class="outcome outcome--finished"`,
 		},
@@ -428,7 +428,7 @@ func TestRegisterValidation(t *testing.T) {
 	form.Set("phone", "123")
 	form.Del("team_name")
 
-	// правила анкеты проверяет usecase, web показывает его нарушения у полей.
+	// правила анкеты проверяет usecase, delivery показывает его нарушения у полей.
 	// У каждого подтеста свой мок: подтесты параллельные
 	newRouter := func(t *testing.T) http.Handler {
 		t.Helper()
@@ -473,7 +473,7 @@ func TestRegisterValidation(t *testing.T) {
 	})
 }
 
-// TestRegisterPlayersAmount - число участников web разбирает сам: без числа анкету не собрать,
+// TestRegisterPlayersAmount - число участников delivery разбирает сам: без числа анкету не собрать,
 // и до usecase она не доходит
 func TestRegisterPlayersAmount(t *testing.T) {
 	t.Parallel()
@@ -495,7 +495,11 @@ func TestRegisterPlayersAmount(t *testing.T) {
 			form := validRegistration()
 			form.Set("players_amount", tt.value)
 
-			rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: registerPath, form: form, htmx: true})
+			rec := do(
+				t,
+				newTestRouter(t, uc),
+				request{method: http.MethodPost, path: registerPath, form: form, htmx: true},
+			)
 			if rec.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status = %d", rec.Code)
 			}
@@ -759,7 +763,7 @@ func TestLogin(t *testing.T) {
 		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 			t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 		}
-		// куку из сессии собирает web: токен, срок и домен из настроек, только https и не видна из js
+		// куку из сессии собирает delivery: токен, срок и домен из настроек, только https и не видна из js
 		assertContains(t, rec.Header().Get("Set-Cookie"),
 			sessionCookie+"=new-token", "Expires=Sat, 17 Oct 2026 09:00:00 GMT", "Domain="+testDomain,
 			"Path=/", "HttpOnly", "Secure", "SameSite=Lax",
@@ -819,7 +823,7 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("registration_open_time", "2026-11-02T12:00")
 
-		// правила игры проверяет usecase, web показывает его нарушения у полей
+		// правила игры проверяет usecase, delivery показывает его нарушения у полей
 		uc := mockUsecase(t)
 		uc.EXPECT().CreateGame(gomock.Any(), gomock.Any()).Return(int64(0), usecase.ValidationError{
 			usecase.FieldRegistrationOpenTime: usecase.ErrOpensAfterStart,
@@ -838,7 +842,7 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("start_time", "завтра")
 
-		// дату web разбирает сам: без неё игру не собрать, и до usecase дело не доходит
+		// дату delivery разбирает сам: без неё игру не собрать, и до usecase дело не доходит
 		req := request{method: http.MethodPost, path: newGamePath, form: bad, admin: true}
 		rec := do(t, newTestRouter(t, mockUsecase(t)), req)
 		if rec.Code != http.StatusUnprocessableEntity {

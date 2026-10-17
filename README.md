@@ -51,7 +51,7 @@ make lint       # golangci-lint с .golangci.yml
 make mocks      # перегенерировать моки после изменения интерфейсов
 ```
 
-Тесты репозитория ходят в локальную базу. Остальные слои проверяются на моках [gomock](https://github.com/uber-go/mock): `web` на моке usecase, `usecase` на моке репозитория. Моки генерирует mockgen по директивам `//go:generate` рядом с интерфейсами и кладёт в соседний пакет `mock`, руками их не правь. Мок репозитория ссылается на типы usecase, поэтому тесты usecase на моках живут во внешнем пакете `usecase_test`: из самого `usecase` импорт `mock` замкнул бы цикл. mockgen подключён в `go.mod` через `tool`, отдельно его ставить не нужно. Данные команд в тестах случайные, их генерирует [gofakeit](https://github.com/brianvoe/gofakeit) через `testsupport.FakeRegistration`.
+Тесты репозитория ходят в локальную базу. Остальные слои проверяются на моках [gomock](https://github.com/uber-go/mock): `delivery` на моке usecase, `usecase` на моке репозитория. Моки генерирует mockgen по директивам `//go:generate` рядом с интерфейсами и кладёт в соседний пакет `mock`, руками их не правь. Мок репозитория ссылается на типы usecase, поэтому тесты usecase на моках живут во внешнем пакете `usecase_test`: из самого `usecase` импорт `mock` замкнул бы цикл. mockgen подключён в `go.mod` через `tool`, отдельно его ставить не нужно. Данные команд в тестах случайные, их генерирует [gofakeit](https://github.com/brianvoe/gofakeit) через `testsupport.FakeRegistration`.
 
 ### Миграции
 
@@ -67,7 +67,7 @@ make jet                                    # перегенерировать i
 
 ```
 cmd/                    точка входа
-internal/app/web        HTTP-обработчики, шаблоны (templates/) и статика (static/)
+internal/app/delivery   HTTP-обработчики, шаблоны (templates/) и статика (static/)
 internal/app/usecase    бизнес-логика: правила игр и анкет, регистрация, места и резерв, удаление команд, вход
 internal/app/repository запросы к Postgres без бизнес-логики: каждый метод — один запрос
 internal/app/*/mock     моки gomock для тестов, генерирует make mocks

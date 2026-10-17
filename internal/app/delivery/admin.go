@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -150,7 +150,7 @@ type gameFormView struct {
 	Fields []field
 }
 
-func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) newGamePage(w http.ResponseWriter, r *http.Request) {
 	form := gameForm{
 		Name:          defaultGameName,
 		Location:      defaultGameLocation,
@@ -160,7 +160,7 @@ func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageGameNew, gameFormView{Fields: form.fields(nil)})
 }
 
-func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) createGame(w http.ResponseWriter, r *http.Request) {
 	form := parseGameForm(r)
 
 	errs := form.validate()
@@ -185,7 +185,7 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // renderGameForm - форма новой игры с ошибками errs у полей
-func (wb *Web) renderGameForm(w http.ResponseWriter, r *http.Request, form gameForm, errs map[string]string) {
+func (wb *delivery) renderGameForm(w http.ResponseWriter, r *http.Request, form gameForm, errs map[string]string) {
 	wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, gameFormView{Fields: form.fields(errs)})
 }
 
@@ -209,7 +209,7 @@ func (v teamsView) FirstReserveName() string {
 	return team.TeamName
 }
 
-func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
+func (wb *delivery) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return teamsView{}, false
@@ -230,7 +230,7 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 	}, true
 }
 
-func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) teamsPage(w http.ResponseWriter, r *http.Request) {
 	view, ok := wb.listTeams(w, r)
 	if !ok {
 		return
@@ -241,7 +241,7 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 
 // deleteRegistration - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются.
 // В адресе id регистрации (registrations.id), не «ID команды» из анкеты
-func (wb *Web) deleteRegistration(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)

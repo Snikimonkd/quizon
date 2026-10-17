@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ var teamsHeader = []any{
 	"Время регистрации",
 }
 
-func (wb *Web) exportTeams(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) exportTeams(w http.ResponseWriter, r *http.Request) {
 	view, ok := wb.listTeams(w, r)
 	if !ok {
 		return

@@ -1,4 +1,4 @@
-package web
+package delivery
 
 // page - страница сайта; значение совпадает с именем шаблона в templates/pages без .html
 type page string
