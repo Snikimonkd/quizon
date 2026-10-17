@@ -145,7 +145,7 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view := registerView{
-		Game:   newGameView(game, wb.now()),
+		Game:   newGameView(game, wb.usecase.Now()),
 		Fields: registrationForm{}.fields(nil),
 	}
 	view.Outcome = closedOutcome(view.Game)
@@ -163,7 +163,7 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := parseRegistrationForm(r)
-	view := registerView{Game: newGameView(game, wb.now())}
+	view := registerView{Game: newGameView(game, wb.usecase.Now())}
 
 	view.Outcome = closedOutcome(view.Game)
 	if view.Outcome != "" {

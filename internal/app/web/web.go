@@ -26,7 +26,7 @@ import (
 //go:embed templates static
 var files embed.FS
 
-//go:generate go tool mockgen -typed -destination=mocks/web_mock.go -package=mocks . Usecase,CookieCache
+//go:generate go tool mockgen -typed -destination=mocks/web_mock.go -package=mocks . Usecase
 
 // Usecase - бизнес-логика, которую использует веб-интерфейс
 type Usecase interface {
@@ -37,26 +37,22 @@ type Usecase interface {
 	ListRegistrations(ctx context.Context, gameID int64) ([]usecase.Registration, error)
 	DeleteRegistration(ctx context.Context, gameID int64, registrationID int64) error
 	Login(ctx context.Context, login, password string) (*http.Cookie, error)
-}
-
-// CookieCache - хранилище сессий админов
-type CookieCache interface {
-	Get(key string) (*http.Cookie, bool)
-	Del(key string)
+	CheckSession(token string) bool
+	Logout(token string)
+	// Now - время usecase: своё время веб не берёт
+	Now() time.Time
 }
 
 // Web - html-интерфейс сервиса
 type Web struct {
 	usecase Usecase
-	cache   CookieCache
 	pages   map[page]*template.Template
 	static  fs.FS
 	assets  assets
-	now     func() time.Time
 }
 
 // New - конструктор для Web
-func New(uc Usecase, cache CookieCache) (*Web, error) {
+func New(uc Usecase) (*Web, error) {
 	static, err := fs.Sub(files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("can't open static files: %w", err)
@@ -74,11 +70,9 @@ func New(uc Usecase, cache CookieCache) (*Web, error) {
 
 	return &Web{
 		usecase: uc,
-		cache:   cache,
 		pages:   pages,
 		static:  static,
 		assets:  assets,
-		now:     time.Now,
 	}, nil
 }
 
@@ -233,7 +227,7 @@ func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p 
 	data := layoutData{
 		Title: p.title(),
 		Admin: wb.isAdmin(r),
-		Year:  wb.now().In(utils.LocMsk).Year(),
+		Year:  wb.usecase.Now().In(utils.LocMsk).Year(),
 		Page:  view,
 	}
 

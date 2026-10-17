@@ -38,30 +38,35 @@ type gameView struct {
 	Admin bool
 }
 
-// newGameView - игра для шаблонов; состояние считается из времени и статуса регистрации
+// newGameView - игра для шаблонов. Состояние считает usecase, now — его же время,
+// нужно только для подписи «когда откроется регистрация»
 func newGameView(game usecase.GameListItem, now time.Time) gameView {
-	view := gameView{
+	return gameView{
 		ID:                   game.ID,
 		Name:                 game.Name,
 		Location:             game.Location,
 		StartTime:            game.StartTime,
 		RegistrationOpenTime: game.RegistrationOpenTime,
 		RegistrationOpens:    ruOpensAt(game.RegistrationOpenTime, now),
-		State:                stateOpen,
+		State:                stateOf(game.Status),
+	}
+}
+
+// stateOf - состояние игры в шаблонах по статусу регистрации из usecase
+func stateOf(status usecase.RegistrationStatus) gameState {
+	switch status {
+	case usecase.StatusWaiting:
+		return stateWaiting
+	case usecase.StatusReserve:
+		return stateReserve
+	case usecase.StatusClosed:
+		return stateClosed
+	case usecase.StatusFinished:
+		return stateFinished
+	case usecase.StatusOk:
 	}
 
-	switch {
-	case !now.Before(game.StartTime):
-		view.State = stateFinished
-	case now.Before(game.RegistrationOpenTime):
-		view.State = stateWaiting
-	case game.Status == usecase.StatusReserve:
-		view.State = stateReserve
-	case game.Status == usecase.StatusClosed:
-		view.State = stateClosed
-	}
-
-	return view
+	return stateOpen
 }
 
 type homeView struct {
@@ -75,7 +80,7 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := wb.now()
+	now := wb.usecase.Now()
 	admin := wb.isAdmin(r)
 	view := homeView{Games: make([]gameView, 0, len(items))}
 	for _, item := range items {

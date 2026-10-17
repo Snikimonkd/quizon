@@ -22,8 +22,11 @@ type LoginRepository interface {
 	GetPassword(ctx context.Context, login string) (string, error)
 }
 
+// CookieCache - хранилище сессий админов: ключ — токен из cookie
 type CookieCache interface {
 	Set(key string, val *http.Cookie)
+	Get(key string) (*http.Cookie, bool)
+	Del(key string)
 }
 
 // Login - проверяет логин и пароль админа и выдаёт cookie сессии
@@ -49,7 +52,7 @@ func (u usecase) Login(ctx context.Context, login, password string) (*http.Cooki
 	cookie := &http.Cookie{
 		Name:    AuthorizationTokenName,
 		Value:   uuid.NewString(),
-		Expires: time.Now().Add(time.Hour * 24),
+		Expires: u.clock.Now().Add(time.Hour * 24),
 
 		Path:   "/",
 		Domain: domain,

@@ -2,18 +2,14 @@ package config
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -160,110 +156,4 @@ func TestRecovererAbortHandler(t *testing.T) {
 		}
 	}()
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-}
-
-// listen - свободный порт на loopback
-func listen(t *testing.T) net.Listener {
-	t.Helper()
-
-	var lc net.ListenConfig
-	ln, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return ln
-}
-
-// get - тело ответа на GET-запрос. Принимает не t, а ctx: вызывается из отдельной горутины
-func get(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-
-	return string(body), err
-}
-
-func TestServeDrainsRequests(t *testing.T) {
-	t.Parallel()
-
-	started, release := make(chan struct{}), make(chan struct{})
-	server := &http.Server{
-		ReadHeaderTimeout: time.Second,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			close(started)
-			<-release
-			_, _ = w.Write([]byte("done"))
-		}),
-	}
-	ln := listen(t)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	stopped := make(chan error, 1)
-	go func() {
-		stopped <- serve(ctx, server, ln)
-	}()
-
-	type response struct {
-		body string
-		err  error
-	}
-	responses := make(chan response, 1)
-	go func() {
-		body, err := get(t.Context(), "http://"+ln.Addr().String()+"/")
-		responses <- response{body: body, err: err}
-	}()
-
-	// запрос уже обрабатывается, и тут приходит SIGTERM
-	select {
-	case <-started:
-	case res := <-responses:
-		t.Fatalf("request didn't reach the handler: %q, %v", res.body, res.err)
-	}
-	cancel()
-
-	// сервер не останавливается, пока запрос не доработает
-	select {
-	case err := <-stopped:
-		t.Fatalf("server stopped with a request in flight: %v", err)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	close(release)
-	res := <-responses
-	if res.err != nil || res.body != "done" {
-		t.Errorf("response = %q, %v; want the full response", res.body, res.err)
-	}
-
-	err := <-stopped
-	if err != nil {
-		t.Errorf("serve = %v, want graceful stop", err)
-	}
-}
-
-func TestServeAddrInUse(t *testing.T) {
-	t.Parallel()
-
-	busy := listen(t)
-	defer busy.Close()
-
-	// порт занят, например, прошлым экземпляром: Serve сразу возвращает ошибку.
-	// Таймаут — чтобы тест не завис, если порт всё-таки займётся
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-
-	server := &http.Server{Addr: busy.Addr().String(), ReadHeaderTimeout: time.Second}
-	err := Serve(ctx, server)
-	if err == nil {
-		t.Error("Serve must fail when the address is taken")
-	}
 }

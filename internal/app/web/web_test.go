@@ -101,26 +101,18 @@ func testCookie(value string) *http.Cookie {
 	}
 }
 
-// newTestRouter - веб-интерфейс на моке uc. Сессия админа в кэше одна — adminToken, она живая ещё час
-func newTestRouter(t *testing.T, uc Usecase) http.Handler {
+// newTestRouter - веб-интерфейс на моке uc. Часы и сессии у usecase: время в тестах стоит на testNow,
+// сессия админа одна — adminToken
+func newTestRouter(t *testing.T, uc *mocks.MockUsecase) http.Handler {
 	t.Helper()
 
-	session := &http.Cookie{
-		Name:     usecase.AuthorizationTokenName,
-		Value:    adminToken,
-		Expires:  testNow.Add(time.Hour),
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	cache := mocks.NewMockCookieCache(gomock.NewController(t))
-	cache.EXPECT().Get(adminToken).Return(session, true).AnyTimes()
+	uc.EXPECT().Now().Return(testNow).AnyTimes()
+	uc.EXPECT().CheckSession(adminToken).Return(true).AnyTimes()
 
-	wb, err := New(uc, cache)
+	wb, err := New(uc)
 	if err != nil {
 		t.Fatalf("can't create web: %v", err)
 	}
-	wb.now = func() time.Time { return testNow }
 
 	r := chi.NewRouter()
 	wb.Routes(r)
@@ -214,9 +206,9 @@ func TestHome(t *testing.T) {
 		listItem(1, future, testNow.Add(-time.Hour), usecase.StatusOk),
 		listItem(2, future, testNow.Add(-time.Hour), usecase.StatusReserve),
 		listItem(3, future, testNow.Add(-time.Hour), usecase.StatusClosed),
-		listItem(4, future, testNow.Add(time.Hour), usecase.StatusOk),
-		// у прошедшей игры места обычно разобраны: время важнее статуса, игра уходит в архив
-		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed),
+		listItem(4, future, testNow.Add(time.Hour), usecase.StatusWaiting),
+		// прошедшая игра уходит в архив
+		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusFinished),
 	}
 	// у каждого подтеста свой мок: подтесты параллельные
 	home := func(t *testing.T, admin bool) *httptest.ResponseRecorder {
@@ -305,7 +297,7 @@ func TestHomeOnlyPast(t *testing.T) {
 	t.Parallel()
 
 	uc := mockUsecase(t)
-	expectGames(uc, listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed))
+	expectGames(uc, listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusFinished))
 	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
 	body := rec.Body.String()
 	assertContains(t, body, "Новых игр пока нет", "Прошедшие игры", `<li class="archive__row">`)
@@ -512,6 +504,7 @@ func TestRegistrationPageStates(t *testing.T) {
 				g.RegistrationOpenTime = testNow.Add(time.Hour)
 				return g
 			},
+			status:    usecase.StatusWaiting,
 			wantText:  "Регистрация ещё не открыта",
 			wantState: `class="booth__game show show--waiting"`,
 			// отсчёт вне живой области: иначе экранный диктор перечитывал бы итог каждую секунду
@@ -523,13 +516,12 @@ func TestRegistrationPageStates(t *testing.T) {
 			},
 		},
 		{
-			// игра прошла, и места обычно разобраны: время важнее статуса
 			name: "finished",
 			game: func(g model.Games) model.Games {
 				g.StartTime = testNow.Add(-time.Hour)
 				return g
 			},
-			status:    usecase.StatusClosed,
+			status:    usecase.StatusFinished,
 			wantText:  "Игра уже прошла",
 			wantState: `class="booth__game show show--finished"`,
 		},

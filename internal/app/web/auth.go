@@ -14,17 +14,7 @@ func (wb *Web) isAdmin(r *http.Request) bool {
 		return false
 	}
 
-	known, ok := wb.cache.Get(cookie.Value)
-	if !ok {
-		return false
-	}
-
-	if known.Expires.Before(wb.now()) {
-		wb.cache.Del(cookie.Value)
-		return false
-	}
-
-	return true
+	return wb.usecase.CheckSession(cookie.Value)
 }
 
 func (wb *Web) requireAdmin(next http.Handler) http.Handler {
@@ -82,7 +72,7 @@ func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
 func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(usecase.AuthorizationTokenName)
 	if err == nil {
-		wb.cache.Del(cookie.Value)
+		wb.usecase.Logout(cookie.Value)
 	}
 
 	http.SetCookie(w, &http.Cookie{

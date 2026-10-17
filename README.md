@@ -94,7 +94,7 @@ docker logs quizon | jq 'select(.level == "ERROR")'
 1. **tests** и **lint** — параллельно.
 2. **build** — образ `snikimonk/quizon` для linux/amd64 и linux/arm64 в Docker Hub с тегами `latest`, `sha-<коммит>` и версией из тега.
 3. **migrate** (только `main`) — SSH-туннель к серверу и `goose up`.
-4. **deploy** (только `main`) — по SSH `docker pull` и перезапуск контейнера. Старый контейнер останавливается через `docker stop`: по SIGTERM приложение перестаёт принимать соединения и до 5 секунд ждёт начатые запросы.
+4. **deploy** (только `main`) — по SSH `docker pull` и перезапуск контейнера.
 
 `migrate` и `deploy` можно запустить и вручную через Run workflow. `deploy` при этом принимает тег образа, что удобно для отката на прошлую версию.
 

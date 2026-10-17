@@ -44,8 +44,6 @@ jobs:
           set -euo pipefail
 
           docker pull "$IMAGE"
-          # stop шлёт SIGTERM и даёт приложению доработать начатые запросы, rm -f убил бы его сразу
-          docker stop quizon 2>/dev/null || true
           docker rm -f quizon 2>/dev/null || true
           docker run -d \
             --name quizon \

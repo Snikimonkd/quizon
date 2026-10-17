@@ -11,7 +11,7 @@ type ListGamesRepository interface {
 	ListGames(ctx context.Context, page int64, perPage int64) ([]repository.GameWithRegistrations, error)
 }
 
-// GameListItem - игра и статус регистрации на неё
+// GameListItem - игра и статус регистрации на неё в момент запроса
 type GameListItem struct {
 	model.Games
 
@@ -25,11 +25,13 @@ func (u usecase) ListGames(ctx context.Context, page int64, perPage int64) ([]Ga
 		return nil, err
 	}
 
+	// один момент на весь список: игры не должны расходиться во времени
+	now := u.clock.Now()
 	ret := make([]GameListItem, 0, len(games))
 	for _, v := range games {
 		ret = append(ret, GameListItem{
 			Games:  v.Games,
-			Status: registrationStatus(v.RegistrationsAmount, v.MainAmount, v.ReserveAmount),
+			Status: gameStatus(v.Games, v.RegistrationsAmount, now),
 		})
 	}
 
