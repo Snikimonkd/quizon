@@ -1,17 +1,28 @@
 {{define "content"}}
 <h1 class="visually-hidden">Игры КвизON</h1>
-{{with .Page.Games}}
-<div class="tickets">
-  {{range .}}{{template "game_card" .}}{{end}}
+{{- /* игры приходят по start_time DESC: сначала предстоящие, потом прошедшие */}}
+{{$upcoming := false}}{{$past := false}}
+{{- range .Page.Games}}{{if eq .State "finished"}}{{$past = true}}{{else}}{{$upcoming = true}}{{end}}{{end}}
+{{if $upcoming}}
+<div class="playbill">
+  {{range .Page.Games}}{{if ne .State "finished"}}{{template "game_card" .}}{{end}}{{end}}
 </div>
 {{else}}
-<article class="sheet empty">
-  <h2>Игр пока нет</h2>
+<section class="empty marquee">
+  <h2>{{if $past}}Новых игр пока нет{{else}}Игр пока нет{{end}}</h2>
   <p>
     Анонсы новых игр выходят в <a href="https://t.me/quizonmsk" target="_blank" rel="noopener noreferrer">Telegram</a>
     и <a href="https://vk.com/quizonmsk" target="_blank" rel="noopener noreferrer">ВКонтакте</a>.
   </p>
   {{if $.Admin}}<a href="/admin/games/new" role="button">Создать игру</a>{{end}}
-</article>
+</section>
+{{end}}
+{{if $past}}
+<section class="archive" aria-labelledby="archive-title">
+  <h2 id="archive-title">Прошедшие игры</h2>
+  <ul class="archive__list">
+    {{range .Page.Games}}{{if eq .State "finished"}}{{template "archive_row" .}}{{end}}{{end}}
+  </ul>
+</section>
 {{end}}
 {{end}}

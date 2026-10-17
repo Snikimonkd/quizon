@@ -95,7 +95,7 @@ func (wb *Web) Routes(r chi.Router) {
 		r.Post("/admin/games/new", wb.createGame)
 		r.Get("/admin/games/{id}/teams", wb.teamsPage)
 		r.Get("/admin/games/{id}/teams.xlsx", wb.exportTeams)
-		r.Post("/admin/games/{id}/teams/{teamID}/delete", wb.deleteTeam)
+		r.Post("/admin/games/{id}/teams/{registrationID}/delete", wb.deleteRegistration)
 	})
 }
 
@@ -151,6 +151,14 @@ func funcs(assets assets) template.FuncMap {
 		"ruDate": func(t time.Time) string {
 			t = t.In(utils.LocMsk)
 			return fmt.Sprintf("%d %s", t.Day(), months[t.Month()-1])
+		},
+		// 2
+		"ruDay": func(t time.Time) int {
+			return t.In(utils.LocMsk).Day()
+		},
+		// ноября
+		"ruMonth": func(t time.Time) string {
+			return months[t.In(utils.LocMsk).Month()-1]
 		},
 		// суббота
 		"ruWeekday": func(t time.Time) string {

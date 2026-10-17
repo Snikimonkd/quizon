@@ -4,6 +4,7 @@ go 1.27
 
 require (
 	github.com/benbjohnson/clock v1.3.5
+	github.com/brianvoe/gofakeit/v7 v7.18.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-jet/jet/v2 v2.7.1
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0

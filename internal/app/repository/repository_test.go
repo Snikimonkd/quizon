@@ -9,7 +9,7 @@ import (
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 
-	"github.com/google/uuid"
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/lo"
@@ -40,11 +40,11 @@ func Test_repository_GetPassword(t *testing.T) {
 			},
 			args: args{
 				ctx:   context.Background(),
-				login: uuid.NewString(),
+				login: gofakeit.Username(),
 			},
 			want: func(ctx context.Context, t *testing.T, db *pgxpool.Pool, login string) string {
 				t.Helper()
-				pass := uuid.NewString()
+				pass := gofakeit.Password(true, true, true, true, false, 16)
 				hashPass, err := bcrypt.GenerateFromPassword([]byte(pass), 12)
 				if err != nil {
 					t.Errorf("can't generate password: %v", err)
@@ -94,8 +94,8 @@ func gameWithDeletedTeam(ctx context.Context, t *testing.T, db *pgxpool.Pool) (i
 		CreatedAt: now,
 		// далеко в будущем, чтобы игра точно попала на первую страницу ListGames
 		StartTime:            now.AddDate(100, 0, 0),
-		Location:             "ауд. 345",
-		Name:                 uuid.NewString(),
+		Location:             "МГТУ им. Н.Э.Баумана ауд. 345",
+		Name:                 gofakeit.Company(),
 		MainAmount:           1,
 		ReserveAmount:        1,
 		RegistrationOpenTime: now,
@@ -103,15 +103,9 @@ func gameWithDeletedTeam(ctx context.Context, t *testing.T, db *pgxpool.Pool) (i
 
 	ids := make([]int64, 0, 3)
 	for i := range 3 {
-		ids = append(ids, testsupport.InsertRegistration(ctx, t, db, model.Registrations{
-			GameID:        gameID,
-			CreatedAt:     now.Add(time.Duration(i) * time.Second),
-			TeamName:      uuid.NewString(),
-			CaptainName:   "капитан",
-			Phone:         "89990000000",
-			Telegram:      "@team",
-			PlayersAmount: 5,
-		}))
+		reg := testsupport.FakeRegistration(gameID)
+		reg.CreatedAt = now.Add(time.Duration(i) * time.Second)
+		ids = append(ids, testsupport.InsertRegistration(ctx, t, db, reg))
 	}
 
 	err := deleteRegistration(ctx, r, gameID, ids[1])

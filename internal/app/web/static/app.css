@@ -1,4 +1,5 @@
-/* КвизON поверх Pico: цвета из прежнего фронта, всё остальное — переменные Pico */
+/* КвизON поверх Pico: сцена квиза. Тёмный зал, лучи прожекторов, вывески с лампами.
+   Цвета — только палитра ниже, их прозрачности и смеси */
 
 @font-face {
   font-family: "Product Sans";
@@ -21,6 +22,8 @@
   src: url("/static/fonts/ProductSans-Bold.ttf") format("truetype");
 }
 
+/* Токены */
+
 [data-theme="dark"] {
   --q-navy: #182a3e;
   --q-surface: #1f354b;
@@ -29,6 +32,22 @@
   --q-gold-light: #f4da6a;
   --q-muted: rgba(255, 255, 255, 0.64);
   --q-danger: #ef4444;
+  /* смеси палитры */
+  --q-danger-text: #f58f8f; /* 60% danger + 40% белого */
+  --q-danger-soft: #f9b4b4; /* 40% danger + 60% белого */
+  --q-danger-deep: #c13a3d; /* 80% danger + 20% deep: белый текст 5.3:1 */
+  --q-danger-deeper: #aa353a; /* 70% danger + 30% deep */
+
+  --q-radius: 0.5rem;
+  --q-radius-s: 0.25rem;
+
+  /* лампы вывески: горит, погашена, перегорела. Это стопы radial-gradient */
+  --bulb-on: #fff 0 0.05rem, var(--q-gold-light) 0.1rem, var(--q-gold) 0.17rem, rgba(224, 172, 89, 0.35) 0.2rem,
+    rgba(224, 172, 89, 0) 0.48rem;
+  --bulb-off: rgba(255, 255, 255, 0.07) 0 0.13rem, rgba(255, 255, 255, 0.24) 0.14rem 0.19rem,
+    rgba(255, 255, 255, 0) 0.21rem;
+  --bulb-dead: rgba(255, 255, 255, 0.03) 0 0.13rem, rgba(255, 255, 255, 0.12) 0.14rem 0.19rem,
+    rgba(255, 255, 255, 0) 0.21rem;
 
   --pico-font-family: "Product Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --pico-font-family-sans-serif: var(--pico-font-family);
@@ -38,68 +57,106 @@
   --pico-h2-color: #fff;
   --pico-h3-color: #fff;
   --pico-muted-color: var(--q-muted);
-  --pico-muted-border-color: rgba(255, 255, 255, 0.12);
-  --pico-border-radius: 12px;
+  --pico-muted-border-color: rgba(255, 255, 255, 0.1);
+  --pico-border-radius: var(--q-radius-s);
+  --pico-text-selection-color: rgba(224, 172, 89, 0.35);
+  --pico-form-label-font-weight: 500;
 
   --pico-primary: var(--q-gold);
   --pico-primary-underline: rgba(224, 172, 89, 0.5);
   --pico-primary-hover: var(--q-gold-light);
   --pico-primary-hover-underline: var(--q-gold-light);
   --pico-primary-focus: rgba(244, 218, 106, 0.45);
-  /* кнопки как в прежнем фронте: тёмные, с золотой рамкой */
-  --pico-primary-background: var(--q-navy);
+  /* все кнопки Pico — золотые плашки с тёмным текстом */
+  --pico-primary-background: var(--q-gold);
   --pico-primary-border: var(--q-gold);
-  --pico-primary-inverse: #fff;
-  --pico-primary-hover-background: #24405c;
+  --pico-primary-inverse: var(--q-deep);
+  --pico-primary-hover-background: var(--q-gold-light);
   --pico-primary-hover-border: var(--q-gold-light);
 
   --pico-card-background-color: var(--q-surface);
   --pico-card-sectioning-background-color: var(--q-navy);
-  --pico-card-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.38);
+  --pico-card-border-color: rgba(255, 255, 255, 0.08);
+  --pico-card-box-shadow: none;
 
-  --pico-form-element-background-color: var(--q-navy);
-  --pico-form-element-selected-background-color: var(--q-navy);
-  --pico-form-element-border-color: rgba(255, 255, 255, 0.2);
+  --pico-form-element-background-color: var(--q-deep);
+  --pico-form-element-selected-background-color: var(--q-deep);
+  /* рамка поверх тёмного поля: 3.9:1 к фону страницы */
+  --pico-form-element-border-color: rgba(255, 255, 255, 0.48);
   --pico-form-element-color: #fff;
-  --pico-form-element-placeholder-color: rgba(255, 255, 255, 0.38);
-  --pico-form-element-active-background-color: var(--q-navy);
-  --pico-form-element-active-border-color: var(--q-gold);
-  --pico-form-element-focus-color: rgba(224, 172, 89, 0.45);
+  --pico-form-element-placeholder-color: rgba(255, 255, 255, 0.5);
+  --pico-form-element-active-background-color: var(--q-deep);
+  --pico-form-element-active-border-color: var(--q-gold-light);
+  --pico-form-element-focus-color: rgba(244, 218, 106, 0.35);
   --pico-form-element-invalid-border-color: var(--q-danger);
   --pico-form-element-invalid-active-border-color: var(--q-danger);
-  --pico-form-element-invalid-focus-color: rgba(239, 68, 68, 0.4);
-  --pico-del-color: #ff8a8a;
+  --pico-form-element-invalid-focus-color: rgba(239, 68, 68, 0.35);
+  --pico-del-color: var(--q-danger-text);
+  --pico-ins-color: var(--q-gold-light);
 
-  --pico-table-border-color: rgba(255, 255, 255, 0.14);
-  --pico-table-row-stripped-background-color: rgba(10, 18, 33, 0.55);
-
+  --pico-table-border-color: rgba(255, 255, 255, 0.08);
+  --pico-table-row-stripped-background-color: rgba(255, 255, 255, 0.025);
   --pico-modal-overlay-background-color: rgba(10, 18, 33, 0.78);
+
+  /* значки Pico в цветах палитры: календарь золотой, ошибка красная */
+  --pico-icon-date: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e0ac59' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+  --pico-icon-invalid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E");
 }
 
-a:focus-visible,
-summary:focus-visible {
+/* Основа */
+
+html {
+  scrollbar-color: rgba(224, 172, 89, 0.4) var(--q-deep);
+}
+
+/* подвал прижат к низу и на короткой странице входа */
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+h1 {
+  font-size: clamp(2rem, 1.2rem + 3vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+:is(a, button, [role="button"], summary):focus-visible {
   outline: 3px solid var(--q-gold-light);
   outline-offset: 3px;
-  border-radius: 4px;
+  box-shadow: none;
+}
+
+/* кольцо Pico на :focus появляется и от мыши; с клавиатуры фокус виден по :focus-visible выше */
+:is(button, [role="button"]):focus:not(:focus-visible) {
+  --pico-box-shadow: none;
 }
 
 button,
 [role="button"] {
-  border-radius: 999px;
-  border-width: 2px;
+  border-radius: var(--q-radius-s);
   font-weight: 700;
 }
 
-/* большие кнопки только в формах-карточках; «Выйти» в шапке и удаление в таблице живут по своим правилам */
-.sheet form button[type="submit"] {
-  width: 100%;
-  margin-top: calc(var(--pico-spacing) * 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+/* тот же селектор, что у Pico: кольцо фокуса полей 3px вместо 1px */
+:where(select, textarea),
+input:not([type="submit"], [type="button"], [type="reset"], [type="checkbox"], [type="radio"], [type="file"]) {
+  --pico-outline-width: 3px;
 }
 
-form.htmx-request button[type="submit"] {
-  opacity: 0.6;
+label {
+  font-size: 0.9375rem;
+}
+
+.req {
+  color: var(--q-gold-light);
+}
+
+hgroup {
+  margin-bottom: 1.5rem;
 }
 
 .visually-hidden {
@@ -111,16 +168,54 @@ form.htmx-request button[type="submit"] {
   white-space: nowrap;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Зал: два луча прожекторов и затемнение по краям, стоят на месте при прокрутке */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    conic-gradient(from 149deg at 0% -10%, rgba(244, 218, 106, 0) 0deg, rgba(244, 218, 106, 0.055) 3deg 9deg, rgba(244, 218, 106, 0) 12deg),
+    conic-gradient(from 199deg at 100% -10%, rgba(244, 218, 106, 0) 0deg, rgba(244, 218, 106, 0.055) 3deg 9deg, rgba(244, 218, 106, 0) 12deg),
+    radial-gradient(120% 80% at 50% 10%, rgba(10, 18, 33, 0) 55%, rgba(10, 18, 33, 0.55) 100%);
+}
+
+/* на широком экране источники ниже углов и лучи положе: сходятся за первой вывеской */
+@media (min-aspect-ratio: 1/1) {
+  body::before {
+    background:
+      conic-gradient(from 126deg at 10% -25%, rgba(244, 218, 106, 0) 0deg, rgba(244, 218, 106, 0.05) 4deg 12deg, rgba(244, 218, 106, 0) 16deg),
+      conic-gradient(from 218deg at 90% -25%, rgba(244, 218, 106, 0) 0deg, rgba(244, 218, 106, 0.05) 4deg 12deg, rgba(244, 218, 106, 0) 16deg),
+      radial-gradient(120% 80% at 50% 10%, rgba(10, 18, 33, 0) 55%, rgba(10, 18, 33, 0.55) 100%);
+  }
+}
+
 /* Шапка */
 
-.site-header nav {
-  padding-block: 0.5rem;
+body > header.site-header {
+  padding-block: 0.5rem 0;
+}
+
+.site-header nav li {
+  padding-block: 0.375rem;
 }
 
 .brand img {
   display: block;
   width: auto;
   height: 2.75rem;
+}
+
+@media (min-width: 48rem) {
+  .brand img {
+    height: 4rem;
+  }
 }
 
 .site-header form.inline {
@@ -134,10 +229,10 @@ form.htmx-request button[type="submit"] {
   margin: 0;
   padding: var(--pico-nav-link-spacing-vertical) var(--pico-nav-link-spacing-horizontal);
   border: 0;
-  border-radius: var(--pico-border-radius);
+  border-radius: var(--q-radius-s);
   background: none;
   box-shadow: none;
-  color: var(--pico-primary);
+  color: rgba(255, 255, 255, 0.8);
   font-family: inherit;
   font-size: inherit;
   font-weight: 500;
@@ -145,110 +240,789 @@ form.htmx-request button[type="submit"] {
   letter-spacing: 0;
   text-decoration: none;
   text-transform: none;
+  transition: color 0.15s ease-out;
 }
 
 .site-header .nav-action:hover {
   background: none;
-  color: var(--pico-primary-hover);
+  color: var(--q-gold-light);
+  text-decoration: underline;
+  text-decoration-color: var(--q-gold);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+/* Афиша: предстоящие игры */
+
+.playbill {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.5rem 2rem;
+  margin-top: 0.5rem;
+}
+
+.playbill > .show:nth-child(2) {
+  --d: 90ms;
+}
+
+.playbill > .show:nth-child(3) {
+  --d: 180ms;
+}
+
+.playbill > .show:nth-child(n + 4) {
+  --d: 270ms;
+}
+
+/* игра: вывеска с лампами, под ней на полу сцены факты и действие */
+.show {
+  --inset: 1.875rem;
+  container: show / inline-size;
+  flex: 1 1 22rem;
+  min-width: 0;
+  max-width: 36rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Вывеска с лампами по краю. Лампы — два слоя без лишней разметки:
+   ::before — фаза A, ::after — фаза B, по четыре градиента на каждый край.
+   Углы принадлежат верхнему и нижнему ряду, боковые ряды отступают на шаг: фазы чередуются по всему кругу */
+
+.marquee {
+  --pitch: 1.125rem;
+  --tile: calc(var(--pitch) * 2);
+  --a: var(--bulb-off);
+  --b: var(--bulb-off);
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--q-radius);
+  background: var(--q-deep);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.marquee::before,
+.marquee::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding-block: var(--pitch);
+  border-radius: inherit;
+  pointer-events: none;
+  background-size: var(--tile) var(--pitch), var(--tile) var(--pitch), var(--pitch) var(--tile), var(--pitch) var(--tile);
+  background-position: left top, left bottom, left top, right top;
+  background-repeat: round no-repeat, round no-repeat, no-repeat round, no-repeat round;
+  background-origin: padding-box, padding-box, content-box, content-box;
+  background-clip: padding-box, padding-box, content-box, content-box;
+}
+
+/* слои: верх, низ, левый край, правый край */
+.marquee::before {
+  background-image:
+    radial-gradient(circle at 25% 50%, var(--a)),
+    radial-gradient(circle at 75% 50%, var(--a)),
+    radial-gradient(circle at 50% 75%, var(--a)),
+    radial-gradient(circle at 50% 25%, var(--a));
+}
+
+.marquee::after {
+  background-image:
+    radial-gradient(circle at 75% 50%, var(--b)),
+    radial-gradient(circle at 25% 50%, var(--b)),
+    radial-gradient(circle at 50% 25%, var(--b)),
+    radial-gradient(circle at 50% 75%, var(--b));
+}
+
+/* регистрация открыта — горят все лампы, в резерв — половина.
+   Правила с :has() отдельно: браузер без :has() выбросил бы весь список селекторов */
+.playbill .show--open .show__sign,
+.outcome--ok.marquee {
+  --a: var(--bulb-on);
+  --b: var(--bulb-on);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.4);
+}
+
+.playbill .show--reserve .show__sign,
+.outcome--reserve.marquee {
+  --a: var(--bulb-on);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.25);
+}
+
+/* свет ламп на стене вокруг вывески; зажигается вместе с фазой A */
+.playbill .show--open .show__sign::before,
+.outcome--ok.marquee::before {
+  box-shadow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
+}
+
+.playbill .show--reserve .show__sign::before,
+.outcome--reserve.marquee::before {
+  box-shadow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
+}
+
+/* на странице регистрации вывеска ждёт итога: состояние мест знает только ответ на регистрацию */
+.booth:has(.outcome--ok) .booth__game .show__sign {
+  --a: var(--bulb-on);
+  --b: var(--bulb-on);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.4);
+}
+
+.booth:has(.outcome--reserve) .booth__game .show__sign {
+  --a: var(--bulb-on);
+  box-shadow: 0 0 0 1px rgba(224, 172, 89, 0.25);
+}
+
+.booth:has(.outcome--ok) .booth__game .show__sign::before {
+  box-shadow: 0 0 2.5rem -0.5rem rgba(224, 172, 89, 0.4);
+}
+
+.booth:has(.outcome--reserve) .booth__game .show__sign::before {
+  box-shadow: 0 0 2rem -0.5rem rgba(224, 172, 89, 0.25);
+}
+
+.show--finished .show__sign {
+  --a: var(--bulb-dead);
+  --b: var(--bulb-dead);
+}
+
+/* Вывеска игры */
+
+.show__sign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.25rem 1.5rem;
+  padding: 2rem var(--inset) var(--inset);
+}
+
+/* дата: большое число, справа месяц и день недели; время сюда не входит */
+.show__date {
+  display: grid;
+  flex: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "day month" "day weekday";
+  column-gap: 0.75rem;
+  margin: 0;
+}
+
+.show__date > time {
+  display: contents;
+}
+
+.show__day {
+  grid-area: day;
+  align-self: end;
+  margin-left: -0.04em;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 4.5rem;
+  font-size: clamp(4.5rem, 30cqi, 6.5rem);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.show__month {
+  grid-area: month;
+  align-self: end;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.show__weekday {
+  grid-area: weekday;
+  margin-top: 0.2rem;
+  color: var(--q-muted);
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+/* число на горящей вывеске — из ламп: точки поверх золотой подложки, подложка одна даёт 5:1.
+   Сам элемент никогда не анимируется и не трансформируется: Safari тогда теряет обрезку по тексту */
+.show__sign {
+  --day-lamps:
+    radial-gradient(circle, #fff 0 0.01em, var(--q-gold-light) 0.02em, rgba(244, 218, 106, 0) 0.032em),
+    linear-gradient(rgba(224, 172, 89, 0.7), rgba(224, 172, 89, 0.7));
+}
+
+.playbill :is(.show--open, .show--reserve) .show__day {
+  color: var(--q-gold-light);
+}
+
+.booth:has(.outcome--ok, .outcome--reserve) .booth__game .show__day {
+  color: var(--q-gold-light);
+}
+
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .playbill :is(.show--open, .show--reserve) .show__day {
+    color: transparent;
+    background-image: var(--day-lamps);
+    background-size: 0.075em 0.075em, 100% 100%;
+    background-repeat: repeat, no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .booth:has(.outcome--ok, .outcome--reserve) .booth__game .show__day {
+    color: transparent;
+    background-image: var(--day-lamps);
+    background-size: 0.075em 0.075em, 100% 100%;
+    background-repeat: repeat, no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+}
+
+.show__head {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+
+.show__title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.show__name {
+  margin: 0.25rem 0 0;
+  color: var(--q-muted);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+/* Факты под вывеской: место и время начала */
+
+.show__facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 1rem var(--inset) 0;
+}
+
+.show__facts > div {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.show__facts > div:last-child {
+  text-align: right;
+}
+
+.show__facts dt {
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.show__facts dd {
+  margin: 0;
+  color: #fff;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.show__facts > div:last-child dd {
+  color: var(--q-gold-light);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* Действие по состоянию */
+
+.show__cta {
+  display: block;
+  margin: 1.25rem 0 0;
+  padding: 1rem var(--inset) 1.0625rem;
+  border-radius: var(--q-radius-s);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+a.show__cta {
+  border: 1px solid var(--q-gold);
+  background-color: var(--q-gold);
+  color: var(--q-deep);
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    color 0.15s ease-out;
+}
+
+a.show__cta:hover {
+  border-color: var(--q-gold-light);
+  background-color: var(--q-gold-light);
+  color: var(--q-deep);
+}
+
+a.show__cta:active {
+  box-shadow: inset 0 0.125rem 0 rgba(10, 18, 33, 0.28);
+}
+
+.show--reserve a.show__cta {
+  border-color: rgba(224, 172, 89, 0.6);
+  background-color: rgba(224, 172, 89, 0.14);
+  color: var(--q-gold-light);
+}
+
+/* после резерва: у организатора своя ссылка в любом состоянии */
+.show--admin a.show__cta {
+  border-color: rgba(224, 172, 89, 0.6);
+  background-color: transparent;
+  color: var(--q-gold-light);
+}
+
+.show--reserve a.show__cta:hover,
+.show--admin a.show__cta:hover {
+  border-color: var(--q-gold);
+  background-color: var(--q-gold);
+  color: var(--q-deep);
+}
+
+/* регистрация закрыта или ещё не открыта — строка состояния, а не кнопка */
+.show__cta--off {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.show--closed .show__cta--off {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.show__status {
+  margin: 1.25rem 0 0;
+  padding: 0 var(--inset);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.show__status + .show__cta {
+  margin-top: 0.75rem;
+}
+
+/* Обратный отсчёт: цифры шрифта разной ширины, поэтому у таблички постоянная ширина,
+   а текст прижат влево — сдвигаются только последние цифры */
+
+.countdown {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.show__cta--off .countdown {
+  display: block;
+  width: fit-content;
+  min-width: 7.6em;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.6rem 0.3rem;
+  border: 1px solid rgba(224, 172, 89, 0.4);
+  border-radius: var(--q-radius-s);
+  background: rgba(224, 172, 89, 0.1);
+  color: var(--q-gold-light);
+  font-size: 1.125rem;
+  font-size: min(1.375rem, 6.6cqi);
+  line-height: 1.15;
+  text-align: left;
+}
+
+:is(.show__status, .outcome) .countdown {
+  display: inline-block;
+  min-width: 7.6em;
+  padding: 0 0.35em;
+  border-radius: 0.2rem;
+  background: rgba(224, 172, 89, 0.12);
+  color: var(--q-gold-light);
+  text-align: left;
+}
+
+/* Широкая вывеска: одна игра на ноутбуке или планшете. rem в условии — настоящий корень Pico, 17–21px */
+
+@container show (min-width: 34rem) {
+  .playbill .show > * {
+    --inset: 2.25rem;
+  }
+
+  .playbill .show__sign {
+    padding-block: 2.25rem 2rem;
+  }
+
+  .playbill .show__day {
+    font-size: clamp(5rem, 20cqi, 7rem);
+  }
+
+  .playbill .show__month {
+    font-size: 1.625rem;
+  }
+
+  .playbill .show__head {
+    flex: 1 1 0;
+    text-align: right;
+  }
+
+  .playbill .show__title {
+    font-size: 1.375rem;
+  }
+
+  .playbill .show__facts > div:last-child dd {
+    font-size: 2rem;
+  }
+}
+
+/* Прошедшие игры: тихий список под афишей */
+
+.archive {
+  max-width: 48rem;
+  margin: 3.5rem auto 0;
+}
+
+.empty + .archive {
+  margin-top: 3rem;
+}
+
+.archive > h2 {
+  margin: 0 0 0.75rem;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.archive__list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgba(224, 172, 89, 0.3);
+}
+
+.archive__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "date teams" "name teams";
+  align-items: center;
+  gap: 0.125rem 1rem;
+  margin: 0;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  list-style: none;
+}
+
+.archive__date {
+  grid-area: date;
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.archive__date time {
+  color: rgba(255, 255, 255, 0.86);
+  font-weight: 700;
+}
+
+.archive__name {
+  grid-area: name;
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.archive__teams {
+  grid-area: teams;
+  color: var(--q-gold);
+  font-size: 0.9375rem;
+  font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 
-.site-header .nav-action:focus-visible {
-  outline: 3px solid var(--q-gold-light);
-  outline-offset: 3px;
-  box-shadow: none;
+.archive__teams:hover {
+  color: var(--q-gold-light);
 }
 
 @media (min-width: 48rem) {
-  .brand img {
-    height: 4.5rem;
+  .archive__row {
+    grid-template-columns: 12.5rem minmax(0, 1fr) auto;
+    grid-template-areas: "date name teams";
+    align-items: baseline;
   }
 }
 
-/* Карточки и формы */
+/* Пустая афиша — погашенная вывеска */
 
-.sheet {
-  max-width: 34rem;
-  margin: 0 auto var(--pico-block-spacing-vertical);
-  padding: 1.5rem 1.25rem;
-  border-radius: 21px;
-  background: var(--q-surface);
-  box-shadow: var(--pico-card-box-shadow);
+.empty {
+  max-width: 30rem;
+  margin: 1.5rem auto 0;
+  padding: 3rem 2.25rem 2.5rem;
+  text-align: center;
 }
 
-.sheet.narrow {
-  max-width: 24rem;
+.empty h2 {
+  margin: 0 0 0.75rem;
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
-@media (min-width: 36rem) {
-  .sheet {
-    padding: 2rem;
-  }
+.empty p {
+  color: var(--q-muted);
 }
 
-hgroup > p:last-child {
+.empty [role="button"] {
+  margin-top: 0.25rem;
+  padding: 0.75rem 1.5rem;
+}
+
+/* ссылки внутри текста подчёркнуты: золото и белый различаются не только цветом */
+:is(.empty p, .outcome, .agreement) a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+:is(.empty p, .outcome) a {
+  color: var(--q-gold);
+}
+
+.agreement a {
   color: var(--q-gold-light);
-  font-weight: 500;
-  font-size: 1.15rem;
 }
 
-.facts {
-  margin: 0 0 1.5rem;
-  padding: 0;
+:is(.empty p, .outcome, .agreement) a:hover {
+  color: var(--q-gold-light);
+  text-decoration-thickness: 2px;
 }
 
-.facts li {
+/* Страница регистрации: та же вывеска, что на афише, и форма рядом */
+
+.booth {
+  display: grid;
+  grid-template-areas: "title" "game" "note" "form";
+  gap: 1.25rem;
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+.booth__title {
+  grid-area: title;
+  margin: 0;
+}
+
+.booth__game {
+  grid-area: game;
+}
+
+.booth__form {
+  grid-area: form;
+}
+
+.booth__note {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  list-style: none;
-  margin-bottom: 0.4rem;
+  grid-area: note;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.9375rem;
+  line-height: 1.4;
 }
 
-.facts svg {
+.booth__note svg {
   flex: none;
   width: 1.25rem;
   height: 1.25rem;
   fill: var(--q-gold);
 }
 
-.req {
-  color: var(--q-gold-light);
+/* на телефоне вывеска компактная: до формы недалеко листать */
+.booth__game > * {
+  --inset: 1.625rem;
 }
+
+.booth__game .show__sign {
+  gap: 1rem 1.25rem;
+  padding: 1.625rem var(--inset);
+}
+
+.booth__game .show__day {
+  font-size: 3.5rem;
+  font-size: clamp(3.5rem, 14cqi, 4.5rem);
+}
+
+.booth__game .show__month {
+  font-size: 1.125rem;
+}
+
+.booth__game .show__weekday {
+  margin-top: 0.125rem;
+  font-size: 0.9375rem;
+}
+
+.booth__game .show__title {
+  font-size: 1rem;
+}
+
+.booth__game .show__name {
+  margin-top: 0.125rem;
+  font-size: 0.9375rem;
+}
+
+@container show (min-width: 20rem) {
+  .booth__game .show__head {
+    flex: 1 1 0;
+    text-align: right;
+  }
+}
+
+/* на ноутбуке вывеска слева и не уезжает, пока заполняют форму */
+@media (min-width: 64rem) {
+  .booth {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "game title" "game note" "game form";
+    align-items: start;
+    column-gap: 3.5rem;
+    max-width: 56rem;
+  }
+
+  .booth__game {
+    position: sticky;
+    top: 1.5rem;
+  }
+
+  .booth__game > * {
+    --inset: 1.875rem;
+  }
+
+  .booth__game .show__sign {
+    gap: 1.25rem 1.5rem;
+    padding: 2rem var(--inset) var(--inset);
+  }
+
+  .booth__game .show__day {
+    font-size: 4.5rem;
+    font-size: clamp(4.5rem, 26cqi, 6rem);
+  }
+
+  .booth__game .show__month {
+    font-size: 1.5rem;
+  }
+
+  .booth__game .show__weekday {
+    margin-top: 0.2rem;
+    font-size: 1rem;
+  }
+
+  .booth__game .show__title {
+    font-size: 1.25rem;
+  }
+
+  .booth__game .show__name {
+    margin-top: 0.25rem;
+    font-size: 1rem;
+  }
+
+  .booth__game .show__head {
+    flex: 1 0 100%;
+    text-align: left;
+  }
+}
+
+/* Формы */
 
 .agreement {
-  margin: var(--pico-spacing) 0 0;
+  margin: 1rem 0 0;
   color: var(--q-muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
-.agreement a,
-.site-footer a {
-  color: var(--q-gold-light);
+/* большие кнопки только в формах; «Выйти» в шапке и удаление в таблице живут по своим правилам */
+:is(.booth__form, .sheet) button[type="submit"] {
+  margin: 0.5rem 0 0;
+  padding: 0.875rem 1rem;
+  font-size: 1.125rem;
+  line-height: 1.25;
+}
+
+:is(.booth__form, .sheet) button[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+/* пока htmx отправляет форму, по низу кнопки бегут огоньки */
+.booth__form form.htmx-request button[type="submit"] {
+  cursor: progress;
+  background-image: radial-gradient(circle, rgba(10, 18, 33, 0.6) 0 0.12rem, rgba(10, 18, 33, 0) 0.16rem);
+  background-position: 0 calc(100% - 0.35rem);
+  background-size: 0.75rem 0.5rem;
+  background-repeat: repeat-x;
 }
 
 .form-error {
+  margin-bottom: 1rem;
   padding: 0.75rem 1rem;
-  border-radius: var(--pico-border-radius);
+  border-left: 3px solid var(--q-danger);
+  border-radius: var(--q-radius-s);
   background: rgba(239, 68, 68, 0.14);
-  color: #ffb4b4;
+  color: var(--q-danger-soft);
 }
 
+/* вход и новая игра: форма стоит прямо на сцене, без панели */
+.sheet {
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+.sheet.narrow {
+  max-width: 22rem;
+}
+
+.sheet > h1,
+.sheet > hgroup {
+  margin-bottom: 1.5rem;
+}
+
+/* Итог регистрации */
+
 .outcome {
-  padding: 1.25rem;
-  border-radius: 18px;
+  padding: 1.5rem 1.5rem 1.25rem;
+  border-radius: var(--q-radius);
   background: var(--q-deep);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .outcome h2 {
-  margin-bottom: 0.75rem;
-  color: var(--q-gold);
-  font-size: 1.5rem;
-}
-
-.outcome--ok h2 {
-  color: var(--q-gold-light);
+  margin: 0 0 0.75rem;
+  color: #fff;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .outcome p:last-child {
@@ -256,240 +1030,230 @@ hgroup > p:last-child {
 }
 
 .outcome time {
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.empty {
-  text-align: center;
+/* зарегистрировались — вокруг итога зажигаются лампы */
+.outcome.marquee {
+  padding: 2.25rem 1.875rem 2rem;
 }
 
-/* Билет игры — главный визуальный элемент */
-
-.tickets {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.75rem;
-  max-width: 30rem;
-  margin: 0 auto var(--pico-block-spacing-vertical);
+.outcome--ok h2 {
+  color: var(--q-gold-light);
+  font-size: 1.75rem;
 }
 
-@media (min-width: 62rem) {
-  .tickets {
-    max-width: none;
-    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
-  }
-}
-
-.ticket {
-  --band: 3.75rem;
-  margin: 0;
-  padding: 0 3px 3px;
-  border-radius: 30px;
-  background: var(--q-gold);
-  box-shadow: var(--pico-card-box-shadow);
-}
-
-/* «30 сентября 19:00» и «воскресенье» на узком телефоне в одну строку не влезают: тогда день недели уходит вниз */
-.ticket > .ticket__date {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-around;
-  gap: 0 1rem;
-  min-height: var(--band);
-  margin: 0;
-  padding: 0.5rem 1rem;
-  border: 0;
-  background: none;
-  color: var(--q-deep);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.ticket__time {
-  font-variant-numeric: tabular-nums;
-}
-
-@media (min-width: 36rem) {
-  .ticket > .ticket__date {
-    font-size: 1.15rem;
-  }
-}
-
-.ticket__body {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 27px;
-  background: var(--q-navy);
-}
-
-.ticket__title {
-  padding: 1.5rem 1.25rem 1.35rem;
-  border-radius: 18px;
-  background: var(--q-deep);
-}
-
-.ticket__title p {
-  margin: 0 0 0.75rem;
-  color: #fff;
-  font-weight: 500;
-  font-size: 1.1rem;
-}
-
-.ticket__title h2 {
-  margin: 0;
-  padding-top: 0.75rem;
-  border-top: 2px solid var(--q-gold);
-  color: var(--q-gold);
-  font-size: 1.6rem;
-}
-
-.ticket__facts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin: 0;
-}
-
-.ticket__facts > div {
-  display: flex;
-  flex-direction: column-reverse;
-  padding: 1rem;
-  border-radius: 18px;
-  background: var(--q-deep);
-}
-
-.ticket__facts dt {
-  margin: 0;
-  color: var(--q-gold);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.ticket__facts dd {
-  margin: 0;
-  color: #fff;
+.outcome--reserve h2 {
+  color: var(--q-gold-light);
   font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.25;
 }
 
-.ticket__cta {
-  display: block;
+/* на ноутбуке лампы зажигаются на вывеске слева, итог — обычная панель */
+@media (min-width: 64rem) {
+  .booth .outcome.marquee {
+    padding: 1.5rem 1.5rem 1.25rem;
+  }
+
+  .booth .outcome.marquee::before,
+  .booth .outcome.marquee::after {
+    content: none;
+  }
+}
+
+/* Участники: табло */
+
+.wide hgroup {
+  margin-bottom: 1.5rem;
+}
+
+#teams {
+  overflow: hidden;
+  border: 1px solid rgba(224, 172, 89, 0.28);
+  border-radius: 0.375rem;
+  background: var(--q-deep);
+}
+
+#teams > p {
   margin: 0;
-  padding: 0.85rem 1rem;
-  border: 2px solid var(--q-gold);
-  border-radius: 999px;
-  background: var(--q-navy);
-  color: #fff;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: center;
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
-a.ticket__cta:hover {
-  background: var(--q-gold);
-  color: var(--q-deep);
-}
-
-.ticket__cta--off {
-  border-color: rgba(255, 255, 255, 0.22);
+  padding: 1.25rem 1rem;
   color: var(--q-muted);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
 }
-
-.ticket__cta--off time {
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.ticket--past {
-  filter: saturate(0.3);
-  opacity: 0.7;
-}
-
-/* Таблица участников */
 
 .teams-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: var(--pico-spacing);
+  gap: 0.75rem 1rem;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .teams-bar p {
   margin: 0;
+  color: var(--q-gold-light);
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .teams-bar [role="button"] {
   width: auto;
+  margin: 0;
+  padding: 0.45rem 0.9rem;
+  border-width: 1px;
+  font-size: 0.875rem;
 }
 
 /* плотнее, чем у Pico: на 14-дюймовом ноутбуке Pico даёт контейнеру 1200px и шрифт 20px,
    и с его отступами ячеек десять колонок туда не влезали */
 .teams-table {
-  font-size: 0.85rem;
+  --pico-background-color: transparent;
+  margin: 0;
+  font-size: 0.8125rem;
 }
 
 .teams-table th,
 .teams-table td {
-  padding: 0.5rem 0.6rem;
+  padding: 0.5rem 0.55rem;
 }
 
-.teams-table th {
+.teams-table th:first-child,
+.teams-table td:first-child {
+  padding-left: 1rem;
+}
+
+.teams-table th:last-child,
+.teams-table td:last-child {
+  padding-right: 0.75rem;
+}
+
+.teams-table thead th {
+  --pico-font-weight: 500;
+  border-bottom: 2px solid rgba(224, 172, 89, 0.55);
+  background-color: var(--q-surface);
   color: var(--q-gold);
+  font-size: 0.75rem;
+  line-height: 1.25;
   vertical-align: bottom;
 }
 
-.nowrap {
+.teams-table thead th:first-child {
+  text-align: right;
+}
+
+/* номер в основе — с горящей лампой слева */
+.teams-table td:first-child {
+  width: 1%;
+  background-image: radial-gradient(circle at 0.6rem 50%, var(--q-gold-light) 0 0.14rem, rgba(244, 218, 106, 0.35) 0.17rem, rgba(244, 218, 106, 0) 0.34rem);
+  background-repeat: no-repeat;
+  color: var(--q-gold-light);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: right;
   white-space: nowrap;
 }
 
-tr.is-reserve td {
-  color: var(--q-muted);
+.teams-table td:nth-child(2) {
+  font-weight: 700;
 }
 
-/* удалённая команда: тусклее резерва, чтобы не путать с теми, кто ещё в игре */
-tr.is-deleted td {
-  color: rgba(255, 255, 255, 0.3);
+/* длинные названия и ники переносятся, а не растягивают таблицу */
+.teams-table td:is(:nth-child(2), :nth-child(3), :nth-child(5)) {
+  overflow-wrap: anywhere;
+}
+
+.teams-table.striped tbody tr:not(.is-deleted):hover > td {
+  background-color: rgba(224, 172, 89, 0.07);
+}
+
+.teams-table tr.is-reserve td {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* в резерве лампа не горит: одно кольцо */
+.teams-table tr.is-reserve td:first-child {
+  background-image: radial-gradient(circle at 0.6rem 50%, rgba(224, 172, 89, 0) 0 0.12rem, rgba(224, 172, 89, 0.75) 0.13rem 0.19rem, rgba(224, 172, 89, 0) 0.21rem);
+  color: rgba(224, 172, 89, 0.75);
+}
+
+/* граница между основным составом и резервом, на ней ярлык */
+.teams-table tr.reserve-start > td {
+  border-top: 2px solid var(--q-gold);
+}
+
+.teams-table tr.reserve-start > td:first-child {
+  position: relative;
+}
+
+.teams-table tr.reserve-start > td:first-child::before {
+  content: "резерв";
+  content: "резерв" / "";
+  position: absolute;
+  top: 0;
+  left: 0.75rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 2px;
+  background: var(--q-gold);
+  color: var(--q-deep);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+/* удалённая команда: тусклее резерва, без номера и лампы, название зачёркнуто */
+.teams-table tr.is-deleted td {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.teams-table tr.is-deleted td:nth-child(2) {
+  font-weight: 500;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.teams-table tr.is-deleted td:first-child {
+  background-image: none;
+}
+
+.teams-table tr.is-deleted td:first-child::before {
+  content: "—";
+  content: "—" / "";
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .row-action {
   margin: 0;
 }
 
-.icon-button {
+.row-action .icon-button {
   display: block;
   width: auto;
   margin: 0;
   padding: 0.25rem;
   border: 0;
-  border-radius: var(--pico-border-radius);
+  border-radius: var(--q-radius-s);
   background: none;
   box-shadow: none;
   color: var(--q-muted);
+  transition:
+    background-color 0.15s ease-out,
+    color 0.15s ease-out;
 }
 
-.icon-button:hover {
-  background: rgba(239, 68, 68, 0.14);
-  color: #ff8a8a;
+.row-action .icon-button:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--q-danger-text);
 }
 
-.icon-button:focus-visible {
-  outline: 3px solid var(--q-gold-light);
+.row-action .icon-button:focus-visible {
   outline-offset: 2px;
-  box-shadow: none;
 }
 
 .icon-button svg {
@@ -497,11 +1261,6 @@ tr.is-deleted td {
   width: 1.25rem;
   height: 1.25rem;
   fill: currentColor;
-}
-
-/* граница между основным составом и резервом */
-tr.reserve-start > td {
-  border-top: 2px solid var(--q-gold);
 }
 
 /* Окно подтверждения удаления */
@@ -514,27 +1273,33 @@ tr.reserve-start > td {
 .confirm > article {
   max-width: 26rem;
   padding: 1.5rem 1.25rem 0;
+  border: 0;
   border-top: 3px solid var(--q-danger);
-  border-radius: 21px;
-  animation: confirm-in 0.16s ease-out;
+  border-radius: var(--q-radius);
+  background: var(--q-surface);
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.45),
+    0 1.5rem 3rem rgba(10, 18, 33, 0.6);
 }
 
 .confirm h2 {
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.75rem;
+  color: #fff;
   font-size: 1.3rem;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
 .confirm p {
-  margin-bottom: 1.5rem;
+  margin: 0 0 1.5rem;
   color: var(--q-muted);
 }
 
 .confirm > article > footer {
   margin: 0 -1.25rem;
   padding: 1rem 1.25rem;
-  border-radius: 0 0 21px 21px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 var(--q-radius) var(--q-radius);
 }
 
 .confirm form {
@@ -544,17 +1309,21 @@ tr.reserve-start > td {
   margin: 0;
 }
 
-/* кнопки одинаковые, кольцо Pico на :focus убрано: «Отмена» получает фокус сразу при открытии и казалась бы крупнее.
-   С клавиатуры фокус всё равно виден, через :focus-visible ниже */
-.confirm form button {
+/* (0,2,2) — сильнее отступа Pico у второй кнопки в подвале окна (0,1,4): кнопки равной ширины */
+.confirm > article > footer :is(.confirm__cancel, .confirm__danger) {
   width: 100%;
   margin: 0;
+  padding: 0.75rem 1rem;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--q-radius-s);
   box-shadow: none;
+  font-weight: 700;
 }
 
 .confirm .confirm__cancel {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: transparent;
   color: #fff;
 }
 
@@ -563,20 +1332,14 @@ tr.reserve-start > td {
 }
 
 .confirm .confirm__danger {
-  border-color: var(--q-danger);
-  background: var(--q-danger);
+  border-color: var(--q-danger-deep);
+  background: var(--q-danger-deep);
   color: #fff;
 }
 
 .confirm .confirm__danger:hover {
-  border-color: #dc2626;
-  background: #dc2626;
-}
-
-.confirm form button:focus-visible {
-  outline: 3px solid var(--q-gold-light);
-  outline-offset: 3px;
-  box-shadow: none;
+  border-color: var(--q-danger-deeper);
+  background: var(--q-danger-deeper);
 }
 
 @media (min-width: 36rem) {
@@ -590,18 +1353,25 @@ tr.reserve-start > td {
   }
 }
 
-@keyframes confirm-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem) scale(0.98);
-  }
-}
-
-/* Подвал */
+/* Подвал: край сцены с рампой */
 
 .site-footer {
-  padding-block: 2rem;
+  position: relative;
+  margin-top: 4rem;
+  padding-block: 2.5rem 2rem;
+  border-top: 1px solid rgba(224, 172, 89, 0.25);
+  background: var(--q-deep);
   text-align: center;
+}
+
+.site-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.75rem;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(244, 218, 106, 0.75) 0 0.08rem, rgba(224, 172, 89, 0.22) 0.14rem, rgba(224, 172, 89, 0) 0.3rem) left center / 1.5rem 0.75rem round no-repeat;
+  transform: translateY(-50%);
 }
 
 .site-footer__logo {
@@ -613,43 +1383,235 @@ tr.reserve-start > td {
   display: flex;
   justify-content: center;
   gap: 3rem;
+  max-width: 24rem;
   margin: 1.25rem auto;
   padding: 0 0 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  max-width: 24rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .socials li {
-  list-style: none;
   margin: 0;
+  list-style: none;
 }
 
 .socials a {
   display: block;
-  color: #c8c6b2;
+  color: var(--q-muted);
+  transition: color 0.15s ease-out;
 }
 
 .socials a:hover {
-  color: var(--q-gold);
+  color: var(--q-gold-light);
 }
 
 .socials svg {
   display: block;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   fill: currentColor;
 }
 
 .site-footer p {
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 .site-footer p a {
-  color: #c8c6b2;
-  font-weight: 700;
+  color: var(--q-muted);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 0.2em;
+}
+
+.site-footer p a:hover {
+  color: var(--q-gold-light);
+  text-decoration-color: currentColor;
+}
+
+/* Движение. Ключевые кадры описывают только начало, конец — объявленное состояние:
+   без анимаций (prefers-reduced-motion) всё сразу на месте, лампы горят */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* свет в зале */
+  body::before {
+    animation: fade-in 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s backwards;
+  }
+
+  /* афиша: вывески проявляются, лампы вспыхивают фазой A, через 120 мс фазой B, число загорается последним */
+  .playbill > .show {
+    animation: fade-in 0.5s ease-out calc(200ms + var(--d, 0ms)) backwards;
+  }
+
+  .playbill > :is(.show--open, .show--reserve) > .show__sign::before {
+    animation: power-on 0.9s linear calc(550ms + var(--d, 0ms)) backwards;
+  }
+
+  .playbill > .show--open > .show__sign::after {
+    animation: power-on 0.9s linear calc(670ms + var(--d, 0ms)) backwards;
+  }
+
+  .playbill > :is(.show--open, .show--reserve) .show__date {
+    animation: number-on 0.5s ease-out calc(900ms + var(--d, 0ms)) backwards;
+  }
+
+  .empty {
+    animation: fade-in 0.5s ease-out 0.2s backwards;
+  }
+
+  .archive {
+    animation: fade-in 0.5s ease-out 0.45s backwards;
+  }
+
+  .booth__game {
+    animation: fade-in 0.5s ease-out 0.2s backwards;
+  }
+
+  /* #teams переживает htmx-замену содержимого, поэтому после удаления не мигает */
+  #teams {
+    animation: fade-in 0.4s ease-out 0.1s backwards;
+  }
+
+  .outcome {
+    animation: fade-in 0.45s ease-out backwards;
+  }
+
+  /* зарегистрировались: лампы вокруг итога вспыхивают и трижды бегут по кругу */
+  .outcome--ok.marquee::before {
+    animation:
+      power-on 0.9s linear 0.15s backwards,
+      chase 0.5s linear 1.05s 3;
+  }
+
+  .outcome--ok.marquee::after {
+    animation:
+      power-on 0.9s linear 0.27s backwards,
+      chase 0.5s linear 1.3s 3;
+  }
+
+  .outcome--reserve.marquee::before {
+    animation: power-on 0.9s linear 0.15s backwards;
+  }
+
+  /* на ноутбуке то же самое делает вывеска слева */
+  @media (min-width: 64rem) {
+    .booth:has(.outcome--ok) .booth__game .show__sign::before {
+      animation:
+        power-on 0.9s linear 0.15s backwards,
+        chase 0.5s linear 1.05s 3;
+    }
+
+    .booth:has(.outcome--ok) .booth__game .show__sign::after {
+      animation:
+        power-on 0.9s linear 0.27s backwards,
+        chase 0.5s linear 1.3s 3;
+    }
+
+    .booth:has(.outcome--reserve) .booth__game .show__sign::before {
+      animation: power-on 0.9s linear 0.15s backwards;
+    }
+  }
+
+  .booth__form form.htmx-request button[type="submit"] {
+    animation: march 0.45s steps(3) infinite;
+  }
+
+  .confirm > article {
+    animation: confirm-in 0.16s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* лампа накаливания: вспышка, провал, дрожание, ровный свет */
+@keyframes power-on {
+  0% {
+    opacity: 0;
+  }
+
+  6% {
+    opacity: 1;
+  }
+
+  11% {
+    opacity: 0.15;
+  }
+
+  18% {
+    opacity: 0.9;
+  }
+
+  24% {
+    opacity: 0.3;
+  }
+
+  34%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes number-on {
+  from {
+    opacity: 0.35;
+  }
+}
+
+@keyframes chase {
+  0%,
+  42% {
+    opacity: 1;
+  }
+
+  50%,
+  92% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes march {
+  to {
+    background-position: 0.75rem calc(100% - 0.35rem);
+  }
+}
+
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+}
+
+/* Режим высокой контрастности: тени и градиенты пропадают, поэтому границы — настоящие рамки */
+
+@media (forced-colors: active) {
+  .marquee,
+  .outcome,
+  #teams,
+  a.show__cta,
+  .show__cta--off .countdown {
+    border: 1px solid CanvasText;
+  }
+
+  .confirm > article {
+    border: 2px solid CanvasText;
+  }
+
+  body::before,
+  .marquee::before,
+  .marquee::after,
+  .site-footer::before {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
