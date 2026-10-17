@@ -1,36 +1,15 @@
-package usecase
+package usecase_test
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/benbjohnson/clock"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/mock/gomock"
 
-	"quizon/internal/app/usecase/mocks"
+	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
 )
-
-// testNow - время на часах usecase в тестах
-var testNow = time.Date(2026, time.October, 16, 9, 0, 0, 0, time.UTC)
-
-// mockClock - часы, которые стоят на at
-func mockClock(at time.Time) *clock.Mock {
-	c := clock.NewMock()
-	c.Set(at)
-
-	return c
-}
-
-// mockRepository - мок репозитория без ожиданий: вызов, которого тест не задал, роняет тест
-func mockRepository(t *testing.T) *mocks.MockRepository {
-	t.Helper()
-
-	return mocks.NewMockRepository(gomock.NewController(t))
-}
 
 func TestGetGame(t *testing.T) {
 	t.Parallel()
@@ -43,18 +22,18 @@ func TestGetGame(t *testing.T) {
 	}
 	tests := []struct {
 		registered int64
-		want       RegistrationStatus
+		want       usecase.RegistrationStatus
 	}{
-		{registered: 1, want: StatusOk},
-		{registered: 2, want: StatusReserve},
-		{registered: 3, want: StatusClosed},
+		{registered: 1, want: usecase.StatusOk},
+		{registered: 2, want: usecase.StatusReserve},
+		{registered: 3, want: usecase.StatusClosed},
 	}
 	for _, tt := range tests {
 		repo := mockRepository(t)
 		repo.EXPECT().GetGame(gomock.Any(), game.ID).Return(game, nil)
 		repo.EXPECT().RegistrationsAmount(gomock.Any(), game.ID).Return(tt.registered, nil)
 
-		u := usecase{repository: repo, clock: mockClock(testNow)}
+		u := usecase.NewUsecase(repo, nil, mockClock(testNow))
 		got, err := u.GetGame(t.Context(), game.ID)
 		if err != nil || got.Games != game || got.Status != tt.want {
 			t.Errorf("registered %d: GetGame = %+v, %v; want status %q", tt.registered, got, err, tt.want)
@@ -65,19 +44,18 @@ func TestGetGame(t *testing.T) {
 	repo := mockRepository(t)
 	repo.EXPECT().GetGame(gomock.Any(), game.ID).Return(game, nil)
 	repo.EXPECT().RegistrationsAmount(gomock.Any(), game.ID).Return(int64(0), nil)
-	u := usecase{repository: repo, clock: mockClock(game.StartTime)}
+	u := usecase.NewUsecase(repo, nil, mockClock(game.StartTime))
 	got, err := u.GetGame(t.Context(), game.ID)
-	if err != nil || got.Status != StatusFinished {
-		t.Errorf("after start: status = %q, %v; want %q", got.Status, err, StatusFinished)
+	if err != nil || got.Status != usecase.StatusFinished {
+		t.Errorf("after start: status = %q, %v; want %q", got.Status, err, usecase.StatusFinished)
 	}
 
-	// репозиторий оборачивает pgx.ErrNoRows, наружу уходит ErrNotFound. Регистрации у такой игры не считаются
+	// игры нет: ErrNotFound репозитория уходит наружу как есть, регистрации у такой игры не считаются
 	repo = mockRepository(t)
-	notFound := fmt.Errorf("can't get game: %w", pgx.ErrNoRows)
-	repo.EXPECT().GetGame(gomock.Any(), int64(8)).Return(model.Games{}, notFound)
-	u = usecase{repository: repo, clock: mockClock(testNow)}
+	repo.EXPECT().GetGame(gomock.Any(), int64(8)).Return(model.Games{}, usecase.ErrNotFound)
+	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
 	_, err = u.GetGame(t.Context(), 8)
-	if !errors.Is(err, ErrNotFound) {
+	if !errors.Is(err, usecase.ErrNotFound) {
 		t.Errorf("unknown game: err = %v, want ErrNotFound", err)
 	}
 
@@ -86,7 +64,7 @@ func TestGetGame(t *testing.T) {
 	repo = mockRepository(t)
 	repo.EXPECT().GetGame(gomock.Any(), game.ID).Return(game, nil)
 	repo.EXPECT().RegistrationsAmount(gomock.Any(), game.ID).Return(int64(0), dbErr)
-	u = usecase{repository: repo, clock: mockClock(testNow)}
+	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
 	_, err = u.GetGame(t.Context(), game.ID)
 	if !errors.Is(err, dbErr) {
 		t.Errorf("count error: err = %v, want %v", err, dbErr)

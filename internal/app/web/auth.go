@@ -8,8 +8,11 @@ import (
 	"quizon/internal/app/usecase"
 )
 
+// sessionCookie - кука с токеном сессии админа
+const sessionCookie string = `authorization-token`
+
 func (wb *Web) isAdmin(r *http.Request) bool {
-	cookie, err := r.Cookie(usecase.AuthorizationTokenName)
+	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
 		return false
 	}
@@ -54,7 +57,7 @@ func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := wb.usecase.Login(r.Context(), view.Login, password)
+	session, err := wb.usecase.Login(r.Context(), view.Login, password)
 	if errors.Is(err, usecase.ErrWrongPassword) {
 		view.Error = "Неверный логин или пароль"
 		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageLogin, view)
@@ -65,18 +68,28 @@ func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, cookie)
+	http.SetCookie(w, &http.Cookie{
+		Name:    sessionCookie,
+		Value:   session.Token,
+		Expires: session.ExpiresAt,
+		Path:    "/",
+		Domain:  wb.domain,
+		// только по https, из js не видна
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 	redirect(w, r, "/")
 }
 
 func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(usecase.AuthorizationTokenName)
+	cookie, err := r.Cookie(sessionCookie)
 	if err == nil {
 		wb.usecase.Logout(cookie.Value)
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     usecase.AuthorizationTokenName,
+		Name:     sessionCookie,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,

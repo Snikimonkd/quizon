@@ -67,7 +67,7 @@ var moscowTime = validation.By(func(value any) error {
 })
 
 func (f gameForm) validate() map[string]string {
-	errs := fieldErrors(validation.ValidateStruct(
+	return fieldErrors(validation.ValidateStruct(
 		&f,
 		validation.Field(&f.Name, validation.Required.Error("Укажите название")),
 		validation.Field(&f.Location, validation.Required.Error("Укажите место")),
@@ -84,16 +84,6 @@ func (f gameForm) validate() map[string]string {
 		),
 		validation.Field(&f.ReserveAmount, intAtLeast(0, "Нужно число от 0")),
 	))
-	if len(errs) > 0 {
-		return errs
-	}
-
-	start, open := f.times()
-	if !open.Before(start) {
-		return map[string]string{"RegistrationOpenTime": "Регистрация должна открыться до начала игры"}
-	}
-
-	return nil
 }
 
 func (f gameForm) times() (time.Time, time.Time) {
@@ -166,18 +156,29 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 
 	errs := form.validate()
 	if len(errs) > 0 {
-		view := gameFormView{Fields: form.fields(errs)}
-		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, view)
+		wb.renderGameForm(w, r, form, errs)
 		return
 	}
 
+	// порядок времён — правило игры, его проверяет usecase. Здесь только показываем ошибку у поля
 	_, err := wb.usecase.CreateGame(r.Context(), form.game())
+	if errors.Is(err, usecase.ErrOpensAfterStart) {
+		wb.renderGameForm(w, r, form, map[string]string{
+			"RegistrationOpenTime": "Регистрация должна открыться до начала игры",
+		})
+		return
+	}
 	if err != nil {
 		wb.serverError(w, r, err)
 		return
 	}
 
 	redirect(w, r, "/")
+}
+
+// renderGameForm - форма новой игры с ошибками errs у полей
+func (wb *Web) renderGameForm(w http.ResponseWriter, r *http.Request, form gameForm, errs map[string]string) {
+	wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, gameFormView{Fields: form.fields(errs)})
 }
 
 type teamsView struct {

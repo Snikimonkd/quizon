@@ -26,7 +26,7 @@ import (
 //go:embed templates static
 var files embed.FS
 
-//go:generate go tool mockgen -typed -destination=mocks/web_mock.go -package=mocks . Usecase
+//go:generate go tool mockgen -typed -destination=mock/usecase_mock.go -package=mock . Usecase
 
 // Usecase - бизнес-логика, которую использует веб-интерфейс
 type Usecase interface {
@@ -36,7 +36,7 @@ type Usecase interface {
 	CreateGame(ctx context.Context, in model.Games) (int64, error)
 	ListRegistrations(ctx context.Context, gameID int64) ([]usecase.Registration, error)
 	DeleteRegistration(ctx context.Context, gameID int64, registrationID int64) error
-	Login(ctx context.Context, login, password string) (*http.Cookie, error)
+	Login(ctx context.Context, login, password string) (usecase.Session, error)
 	CheckSession(token string) bool
 	Logout(token string)
 }
@@ -44,13 +44,15 @@ type Usecase interface {
 // Web - html-интерфейс сервиса
 type Web struct {
 	usecase Usecase
-	pages   map[page]*template.Template
-	static  fs.FS
-	assets  assets
+	// domain - домен куки входа
+	domain string
+	pages  map[page]*template.Template
+	static fs.FS
+	assets assets
 }
 
-// New - конструктор для Web
-func New(uc Usecase) (*Web, error) {
+// New - конструктор для Web. domain - домен куки входа: localhost локально, quiz-on.ru на проде
+func New(uc Usecase, domain string) (*Web, error) {
 	static, err := fs.Sub(files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("can't open static files: %w", err)
@@ -68,6 +70,7 @@ func New(uc Usecase) (*Web, error) {
 
 	return &Web{
 		usecase: uc,
+		domain:  domain,
 		pages:   pages,
 		static:  static,
 		assets:  assets,

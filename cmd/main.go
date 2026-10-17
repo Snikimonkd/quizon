@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net/http"
+
+	"github.com/benbjohnson/clock"
 
 	"quizon/internal/app/repository"
 	"quizon/internal/app/usecase"
@@ -18,6 +19,11 @@ func main() {
 	logger.Setup(debug)
 	slog.Info("runtime start", "debug", debug)
 
+	domain, err := config.Domain()
+	if err != nil {
+		logger.Fatal("can't read config", err)
+	}
+
 	ctx := context.Background()
 
 	db, err := config.ConnectToPostgres(ctx)
@@ -26,12 +32,12 @@ func main() {
 	}
 	slog.Info("db ready")
 
-	cookieCache := cache.New[*http.Cookie]()
+	sessions := cache.New[usecase.Session]()
 
 	repository := repository.NewRepository(db)
-	usecase := usecase.NewUsecase(repository, cookieCache)
+	usecase := usecase.NewUsecase(repository, sessions, clock.New())
 
-	webUI, err := web.New(usecase)
+	webUI, err := web.New(usecase, domain)
 	if err != nil {
 		logger.Fatal("can't init web ui", err)
 	}

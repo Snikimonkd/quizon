@@ -1,14 +1,29 @@
 package usecase
 
+import "time"
+
+// Session - сессия админа: находится по токену и действует до ExpiresAt
+type Session struct {
+	Token     string
+	ExpiresAt time.Time
+}
+
+// SessionStore - хранилище сессий админов по токену
+type SessionStore interface {
+	Set(token string, session Session)
+	Get(token string) (Session, bool)
+	Del(token string)
+}
+
 // CheckSession - действует ли сессия админа с этим токеном. Истёкшую сессию сразу удаляет
 func (u usecase) CheckSession(token string) bool {
-	cookie, ok := u.cookieCache.Get(token)
+	session, ok := u.sessions.Get(token)
 	if !ok {
 		return false
 	}
 
-	if cookie.Expires.Before(u.clock.Now()) {
-		u.cookieCache.Del(token)
+	if session.ExpiresAt.Before(u.clock.Now()) {
+		u.sessions.Del(token)
 		return false
 	}
 
@@ -17,5 +32,5 @@ func (u usecase) CheckSession(token string) bool {
 
 // Logout - завершает сессию админа
 func (u usecase) Logout(token string) {
-	u.cookieCache.Del(token)
+	u.sessions.Del(token)
 }

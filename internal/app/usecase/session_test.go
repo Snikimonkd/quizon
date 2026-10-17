@@ -1,31 +1,20 @@
-package usecase
+package usecase_test
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
+	"quizon/internal/app/usecase"
 	"quizon/internal/pkg/cache"
 )
-
-// sessionCookie - сессия админа, которая истекает в expires
-func sessionCookie(expires time.Time) *http.Cookie {
-	return &http.Cookie{
-		Name:     AuthorizationTokenName,
-		Expires:  expires,
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-}
 
 func TestCheckSession(t *testing.T) {
 	t.Parallel()
 
-	sessions := cache.New[*http.Cookie]()
-	sessions.Set("live", sessionCookie(testNow.Add(time.Hour)))
-	sessions.Set("expired", sessionCookie(testNow.Add(-time.Second)))
-	u := usecase{cookieCache: sessions, clock: mockClock(testNow)}
+	sessions := cache.New[usecase.Session]()
+	sessions.Set("live", usecase.Session{Token: "live", ExpiresAt: testNow.Add(time.Hour)})
+	sessions.Set("expired", usecase.Session{Token: "expired", ExpiresAt: testNow.Add(-time.Second)})
+	u := usecase.NewUsecase(nil, sessions, mockClock(testNow))
 
 	if !u.CheckSession("live") {
 		t.Error("live session must be valid")
@@ -46,9 +35,9 @@ func TestCheckSession(t *testing.T) {
 func TestLogout(t *testing.T) {
 	t.Parallel()
 
-	sessions := cache.New[*http.Cookie]()
-	sessions.Set("token", sessionCookie(testNow.Add(time.Hour)))
-	u := usecase{cookieCache: sessions, clock: mockClock(testNow)}
+	sessions := cache.New[usecase.Session]()
+	sessions.Set("token", usecase.Session{Token: "token", ExpiresAt: testNow.Add(time.Hour)})
+	u := usecase.NewUsecase(nil, sessions, mockClock(testNow))
 
 	u.Logout("token")
 	if u.CheckSession("token") {

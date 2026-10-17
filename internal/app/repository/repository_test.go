@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 
@@ -116,6 +117,7 @@ func gameWithDeletedTeam(ctx context.Context, t *testing.T, db *pgxpool.Pool) (i
 	return gameID, ids
 }
 
+// deleteRegistration - удаляет регистрацию в своей транзакции, как это делает usecase
 func deleteRegistration(ctx context.Context, r repository, gameID, registrationID int64) error {
 	return r.Transactional(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		return r.DeleteRegistration(ctx, tx, gameID, registrationID, time.Now())
@@ -132,11 +134,11 @@ func Test_repository_DeleteRegistration(t *testing.T) {
 
 	// повторно и из чужой игры удалить нельзя
 	err := deleteRegistration(ctx, r, gameID, ids[1])
-	if !errors.Is(err, ErrNotFound) {
+	if !errors.Is(err, usecase.ErrNotFound) {
 		t.Errorf("second delete: err = %v, want ErrNotFound", err)
 	}
 	err = deleteRegistration(ctx, r, gameID+1, ids[0])
-	if !errors.Is(err, ErrNotFound) {
+	if !errors.Is(err, usecase.ErrNotFound) {
 		t.Errorf("delete from another game: err = %v, want ErrNotFound", err)
 	}
 
@@ -164,22 +166,93 @@ func Test_repository_CountsSkipDeleted(t *testing.T) {
 		t.Errorf("RegistrationsAmount = %d, %v; want 2", amount, err)
 	}
 
-	var cnt int64
+	// в транзакции регистрации игра приходит вместе с числом оставшихся команд
+	var locked usecase.GameWithRegistrations
 	err = r.Transactional(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var txErr error
-		_, _, _, cnt, txErr = r.GetRegistrationsAmount(ctx, tx, gameID)
+		locked, txErr = r.GetGameWithRegistrations(ctx, tx, gameID)
 		return txErr
 	})
-	if err != nil || cnt != 2 {
-		t.Errorf("GetRegistrationsAmount = %d, %v; want 2", cnt, err)
+	if err != nil || locked.ID != gameID || locked.RegistrationsAmount != 2 {
+		t.Errorf("GetGameWithRegistrations = game %d with %d registrations, %v; want game %d with 2",
+			locked.ID, locked.RegistrationsAmount, err, gameID)
 	}
 
 	games, err := r.ListGames(ctx, 1, 100)
 	if err != nil {
 		t.Fatalf("can't list games: %v", err)
 	}
-	game, ok := lo.Find(games, func(g GameWithRegistrations) bool { return g.ID == gameID })
+	game, ok := lo.Find(games, func(g usecase.GameWithRegistrations) bool { return g.ID == gameID })
 	if !ok || game.RegistrationsAmount != 2 {
 		t.Errorf("ListGames: found = %v, registrations = %d; want 2", ok, game.RegistrationsAmount)
+	}
+}
+
+func Test_repository_Transactional(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	db := testsupport.ConnectToTestPostgres(ctx, t)
+	r := NewRepository(db)
+	gameID, ids := gameWithDeletedTeam(ctx, t, db)
+
+	// register - сохраняет новую команду в транзакции, которая заканчивается ошибкой fail
+	register := func(fail error) (model.Registrations, error) {
+		reg := testsupport.FakeRegistration(gameID)
+		reg.CreatedAt = time.Now().Add(time.Hour)
+
+		return reg, r.Transactional(ctx, func(ctx context.Context, tx pgx.Tx) error {
+			err := r.CreateRegistration(ctx, tx, reg)
+			if err != nil {
+				return err
+			}
+
+			return fail
+		})
+	}
+
+	// ошибка откатывает запись и возвращается как есть
+	errStop := errors.New("stop")
+	_, err := register(errStop)
+	if !errors.Is(err, errStop) {
+		t.Errorf("failed tx: err = %v, want %v", err, errStop)
+	}
+
+	// без ошибки запись остаётся и встаёт в конец списка
+	reg, err := register(nil)
+	if err != nil {
+		t.Fatalf("can't register: %v", err)
+	}
+
+	regs, err := r.ListRegistrations(ctx, gameID)
+	if err != nil {
+		t.Fatalf("can't list registrations: %v", err)
+	}
+	if len(regs) != len(ids)+1 || regs[len(regs)-1].TeamName != reg.TeamName {
+		t.Errorf("only the committed registration must be saved: %+v", regs)
+	}
+}
+
+// Test_repository_NotFound - вместо ошибок базы репозиторий отдаёт usecase.ErrNotFound
+func Test_repository_NotFound(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	r := NewRepository(testsupport.ConnectToTestPostgres(ctx, t))
+
+	_, err := r.GetGame(ctx, -1)
+	if !errors.Is(err, usecase.ErrNotFound) {
+		t.Errorf("GetGame: err = %v, want ErrNotFound", err)
+	}
+	_, err = r.GetPassword(ctx, "nobody-"+gofakeit.UUID())
+	if !errors.Is(err, usecase.ErrNotFound) {
+		t.Errorf("GetPassword: err = %v, want ErrNotFound", err)
+	}
+	err = r.Transactional(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		_, txErr := r.GetGameWithRegistrations(ctx, tx, -1)
+		return txErr
+	})
+	if !errors.Is(err, usecase.ErrNotFound) {
+		t.Errorf("GetGameWithRegistrations: err = %v, want ErrNotFound", err)
 	}
 }

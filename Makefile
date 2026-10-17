@@ -35,7 +35,7 @@ migrate-up:
 	@PATH=$(LOCAL_BIN):$(PATH) goose -dir migrations postgres "$(PG_DSN)" up
 
 migrate-down:
-	@echo "↩️  revert migration"
+	@echo "↩️ revert migration"
 	PATH=$(LOCAL_BIN):$(PATH) goose -dir migrations postgres "$(PG_DSN)" down
 
 create-migration:

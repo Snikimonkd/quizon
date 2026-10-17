@@ -7,6 +7,10 @@ import (
 	"quizon/internal/generated/postgres/public/model"
 )
 
+// testNow - точка отсчёта времени в тестах статусов. Тесты на моках живут во внешнем пакете usecase_test,
+// а этим нужны неэкспортируемые функции, поэтому у них своё время
+var testNow = time.Date(2026, time.October, 16, 9, 0, 0, 0, time.UTC)
+
 func TestRegistrationStatus(t *testing.T) {
 	t.Parallel()
 

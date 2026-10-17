@@ -20,7 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"quizon/internal/app/usecase"
-	"quizon/internal/app/web/mocks"
+	"quizon/internal/app/web/mock"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 	"quizon/internal/utils"
@@ -33,6 +33,8 @@ const (
 	newGamePath  string = "/admin/games/new"
 	teamsPath    string = "/admin/games/7/teams"
 	adminLogin   string = "admin"
+	// testDomain - домен куки входа в тестах
+	testDomain string = "quiz-on.ru"
 	// locationFact - место игры в фактах карточки
 	locationFact string = "<dt>место</dt><dd>" + defaultGameLocation + "</dd>"
 )
@@ -40,24 +42,24 @@ const (
 var testNow = time.Date(2026, time.October, 16, 12, 0, 0, 0, utils.LocMsk)
 
 // mockUsecase - мок usecase без ожиданий: вызов, которого тест не задал, роняет тест
-func mockUsecase(t *testing.T) *mocks.MockUsecase {
+func mockUsecase(t *testing.T) *mock.MockUsecase {
 	t.Helper()
 
-	return mocks.NewMockUsecase(gomock.NewController(t))
+	return mock.NewMockUsecase(gomock.NewController(t))
 }
 
 // expectGames - главная получит список игр games
-func expectGames(uc *mocks.MockUsecase, games ...usecase.GameListItem) {
+func expectGames(uc *mock.MockUsecase, games ...usecase.GameListItem) {
 	uc.EXPECT().ListGames(gomock.Any(), int64(1), gamesPerPage).Return(games, nil)
 }
 
 // expectGame - loadGame найдёт игру game со статусом регистрации status
-func expectGame(uc *mocks.MockUsecase, game model.Games, status usecase.RegistrationStatus) {
+func expectGame(uc *mock.MockUsecase, game model.Games, status usecase.RegistrationStatus) {
 	uc.EXPECT().GetGame(gomock.Any(), game.ID).Return(usecase.GameListItem{Games: game, Status: status}, nil).AnyTimes()
 }
 
 // expectTeams - страница участников игры game со списком teams. Статус регистрации странице не нужен
-func expectTeams(uc *mocks.MockUsecase, game model.Games, teams []usecase.Registration) {
+func expectTeams(uc *mock.MockUsecase, game model.Games, teams []usecase.Registration) {
 	expectGame(uc, game, "")
 	uc.EXPECT().ListRegistrations(gomock.Any(), game.ID).Return(teams, nil).AnyTimes()
 }
@@ -93,7 +95,7 @@ func teamName(teams []usecase.Registration, i int) string {
 
 func testCookie(value string) *http.Cookie {
 	return &http.Cookie{
-		Name:     usecase.AuthorizationTokenName,
+		Name:     sessionCookie,
 		Value:    value,
 		Secure:   true,
 		HttpOnly: true,
@@ -102,12 +104,12 @@ func testCookie(value string) *http.Cookie {
 }
 
 // newTestRouter - веб-интерфейс на моке uc. Сессия админа одна — adminToken
-func newTestRouter(t *testing.T, uc *mocks.MockUsecase) http.Handler {
+func newTestRouter(t *testing.T, uc *mock.MockUsecase) http.Handler {
 	t.Helper()
 
 	uc.EXPECT().CheckSession(adminToken).Return(true).AnyTimes()
 
-	wb, err := New(uc)
+	wb, err := New(uc, testDomain)
 	if err != nil {
 		t.Fatalf("can't create web: %v", err)
 	}
@@ -370,6 +372,11 @@ func TestRegister(t *testing.T) {
 			// отсчёт тикает каждую секунду, поэтому сам итог не живая область: role="status" только у заголовка
 			name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "<h2>Регистрация ещё не открыта</h2>",
 			wantClass: `class="outcome outcome--waiting">`,
+		},
+		{
+			// игра началась, пока капитан заполнял анкету: время проверяет usecase, web показывает итог
+			name: "game started", status: usecase.StatusFinished, wantText: "Игра уже прошла",
+			wantClass: `class="outcome outcome--finished"`,
 		},
 	}
 	for _, tt := range tests {
@@ -659,7 +666,7 @@ func TestLogin(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "nope").Return(nil, usecase.ErrWrongPassword)
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "nope").Return(usecase.Session{}, usecase.ErrWrongPassword)
 		form := loginForm("nope")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusUnprocessableEntity {
@@ -672,20 +679,25 @@ func TestLogin(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(testCookie("new-token"), nil)
+		session := usecase.Session{Token: "new-token", ExpiresAt: testNow.Add(24 * time.Hour)}
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(session, nil)
 		form := loginForm("secret")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 			t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 		}
-		assertContains(t, rec.Header().Get("Set-Cookie"), "new-token")
+		// куку из сессии собирает web: токен, срок и домен из настроек, только https и не видна из js
+		assertContains(t, rec.Header().Get("Set-Cookie"),
+			sessionCookie+"=new-token", "Expires=Sat, 17 Oct 2026 09:00:00 GMT", "Domain="+testDomain,
+			"Path=/", "HttpOnly", "Secure", "SameSite=Lax",
+		)
 	})
 
 	t.Run("server error", func(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(nil, errors.New("db is down"))
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(usecase.Session{}, errors.New("db is down"))
 		form := loginForm("secret")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusInternalServerError {
@@ -734,13 +746,14 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("registration_open_time", "2026-11-02T12:00")
 
-		// неверная игра до usecase не доходит: CreateGame мок не ждёт
-		h := newTestRouter(t, mockUsecase(t))
-		rec := do(t, h, request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
+		// порядок времён проверяет usecase, web показывает его ошибку у поля
+		uc := mockUsecase(t)
+		uc.EXPECT().CreateGame(gomock.Any(), gomock.Any()).Return(int64(0), usecase.ErrOpensAfterStart)
+		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
-		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры")
+		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры", `aria-invalid="true"`)
 	})
 }
 
