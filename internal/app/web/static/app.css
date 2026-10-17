@@ -568,8 +568,26 @@ body > header.site-header {
 
 /* Действие по состоянию */
 
+/* на афише карточка — колонка: вывеска, факты, плашка. Карточки в одном ряду одной высоты,
+   и плашка забирает остаток: если у соседней игры плашка перенеслась в две строки, обе плашки одинаковые */
+.playbill > .show {
+  display: flex;
+  flex-direction: column;
+}
+
+.playbill > .show > .show__cta {
+  flex-grow: 1;
+}
+
+/* подпись слева, значение (отсчёт, «мест нет») справа; не влезают в строку — значение уходит под подпись,
+   и строки стоят по центру плашки */
 .show__cta {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
   margin: 1.25rem 0 0;
   padding: 1rem var(--inset) 1.0625rem;
   border-radius: var(--q-radius-s);
@@ -619,15 +637,9 @@ a.show__cta:active {
   color: var(--q-deep);
 }
 
-/* регистрация ещё не открыта или мест нет — та же плашка, что и кнопка, только погашенная:
-   низ у вывесок всегда одинаковый, а состояние видно по свету, как у ламп.
-   Подпись слева, отсчёт справа; на узком экране отсчёт переносится под подпись внутри плашки */
+/* регистрация ещё не открыта или закрыта — та же плашка, что и кнопка, только погашенная:
+   низ у вывесок всегда одинаковый, а состояние видно по свету, как у ламп */
 .show__cta--off {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background-color: rgba(10, 18, 33, 0.55);
   color: rgba(255, 255, 255, 0.8);
@@ -637,6 +649,12 @@ a.show__cta:active {
 .show--closed .show__cta--off {
   color: rgba(255, 255, 255, 0.86);
   font-weight: 700;
+}
+
+/* «мест нет» у закрытой регистрации — пояснение, тише подписи */
+.show__cta-value {
+  color: var(--q-muted);
+  font-weight: 500;
 }
 
 .show__status {

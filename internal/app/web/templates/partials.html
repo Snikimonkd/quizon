@@ -13,8 +13,9 @@
 {{- else if .Hint}}<small id="f-{{.Name}}-msg">{{.Hint}}</small>{{end}}
 {{end}}
 
-{{/* Обратный отсчёт до открытия регистрации, app.js обновляет текст каждую секунду */}}
-{{define "countdown"}}<time class="countdown" datetime="{{iso .}}" data-countdown>{{ruDateTime .}}</time>{{end}}
+{{/* Когда откроется регистрация: сервер пишет словами («завтра в 20:00»), меньше чем за сутки app.js
+     показывает отсчёт и обновляет его каждую секунду. Ожидает web.gameView */}}
+{{define "countdown"}}<time class="countdown" datetime="{{iso .RegistrationOpenTime}}" data-countdown>{{.RegistrationOpens}}</time>{{end}}
 
 {{/* Вывеска игры: название и дата с днём недели (без времени). Лампы по краю рисует CSS. Ожидает web.gameView.
      Дата в разметке после заголовка, чтобы читалась вместе с ним; первой на вывеске её ставит CSS */}}
@@ -40,7 +41,7 @@
 {{define "game_status"}}
 {{- if eq .State "open"}}Регистрация открыта
 {{- else if eq .State "reserve"}}Открыта регистрация в резерв
-{{- else if eq .State "waiting"}}Регистрация откроется {{template "countdown" .RegistrationOpenTime}}
+{{- else if eq .State "waiting"}}Регистрация откроется {{template "countdown" .}}
 {{- else if eq .State "closed"}}Мест нет
 {{- else}}Игра завершена{{end}}
 {{- end}}
@@ -54,14 +55,13 @@
   <p class="show__status">{{template "game_status" .}}</p>
   <a class="show__cta" href="/admin/games/{{.ID}}/teams">Список участников</a>
   {{else if eq .State "open"}}
-  <a class="show__cta" href="/games/{{.ID}}/register">Регистрация</a>
+  <a class="show__cta" href="/games/{{.ID}}/register">Регистрация открыта</a>
   {{else if eq .State "reserve"}}
   <a class="show__cta" href="/games/{{.ID}}/register">Регистрация в резерв</a>
   {{else if eq .State "waiting"}}
-  {{/* та же «Регистрация», что на кнопке, только погашенная; «откроется» — для экранного диктора */}}
-  <p class="show__cta show__cta--off">Регистрация<span class="visually-hidden"> откроется</span> {{template "countdown" .RegistrationOpenTime}}</p>
+  <p class="show__cta show__cta--off">Регистрация откроется {{template "countdown" .}}</p>
   {{else if eq .State "closed"}}
-  <p class="show__cta show__cta--off">Мест нет</p>
+  <p class="show__cta show__cta--off">Регистрация закрыта <span class="show__cta-value">мест нет</span></p>
   {{else}}
   <p class="show__cta show__cta--off">Игра завершена</p>
   {{end}}
@@ -96,7 +96,7 @@
   {{else if eq .Outcome "waiting"}}
   <div role="status"><h2>Регистрация ещё не открыта</h2></div>
   {{/* отсчёт в конце абзаца: его цифры разной ширины и не двигают текст после себя */}}
-  <p>Она откроется {{template "countdown" .Game.RegistrationOpenTime}}.</p>
+  <p>Она откроется {{template "countdown" .Game}}.</p>
   <p>Возвращайся чуть позже.</p>
   {{else}}
   <h2>Игра уже прошла</h2>

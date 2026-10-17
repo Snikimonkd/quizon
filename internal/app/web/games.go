@@ -31,7 +31,9 @@ type gameView struct {
 	Location             string
 	StartTime            time.Time
 	RegistrationOpenTime time.Time
-	State                gameState
+	// RegistrationOpens - когда откроется регистрация словами, см. ruOpensAt
+	RegistrationOpens string
+	State             gameState
 	// Admin - смотрит организатор: вместо регистрации показываем список участников
 	Admin bool
 }
@@ -44,6 +46,7 @@ func newGameView(game usecase.GameListItem, now time.Time) gameView {
 		Location:             game.Location,
 		StartTime:            game.StartTime,
 		RegistrationOpenTime: game.RegistrationOpenTime,
+		RegistrationOpens:    ruOpensAt(game.RegistrationOpenTime, now),
 		State:                stateOpen,
 	}
 
