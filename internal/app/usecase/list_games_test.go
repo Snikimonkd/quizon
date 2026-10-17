@@ -1,37 +1,38 @@
-package usecase
+package usecase_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"go.uber.org/mock/gomock"
 
-	"quizon/internal/app/repository"
+	"quizon/internal/app/usecase"
 )
 
 func TestListGames(t *testing.T) {
 	t.Parallel()
 
-	game := func(id int64, start, open time.Time, registered int64) repository.GameWithRegistrations {
-		return repository.GameWithRegistrations{
+	game := func(id int64, start, open time.Time, registered int64) usecase.GameWithRegistrations {
+		return usecase.GameWithRegistrations{
 			ID: id, MainAmount: 2, ReserveAmount: 1, StartTime: start, RegistrationOpenTime: open,
 			RegistrationsAmount: registered,
 		}
 	}
 	repo := mockRepository(t)
-	repo.EXPECT().ListGames(gomock.Any(), int64(1), int64(100)).Return([]repository.GameWithRegistrations{
+	repo.EXPECT().ListGames(gomock.Any(), int64(1), int64(100)).Return([]usecase.GameWithRegistrations{
 		game(1, testNow.Add(48*time.Hour), testNow.Add(time.Hour), 0),
 		game(2, testNow.Add(48*time.Hour), testNow.Add(-time.Hour), 2),
 		game(3, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), 3),
 	}, nil)
-	u := usecase{repository: repo, clock: mockClock(testNow)}
+	u := usecase.NewUsecase(repo, nil, mockClock(testNow))
 
 	got, err := u.ListGames(t.Context(), 1, 100)
 	if err != nil {
 		t.Fatalf("ListGames: %v", err)
 	}
 	// статус каждой игры — на момент запроса по часам usecase
-	want := []RegistrationStatus{StatusWaiting, StatusReserve, StatusFinished}
+	want := []usecase.RegistrationStatus{usecase.StatusWaiting, usecase.StatusReserve, usecase.StatusFinished}
 	if len(got) != len(want) {
 		t.Fatalf("games = %d, want %d", len(got), len(want))
 	}
@@ -39,5 +40,15 @@ func TestListGames(t *testing.T) {
 		if item.Status != want[i] {
 			t.Errorf("game %d: status = %q, want %q", item.ID, item.Status, want[i])
 		}
+	}
+
+	// ошибку репозитория отдаёт как есть
+	dbErr := errors.New("db is down")
+	repo = mockRepository(t)
+	repo.EXPECT().ListGames(gomock.Any(), int64(1), int64(100)).Return(nil, dbErr)
+	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
+	_, err = u.ListGames(t.Context(), 1, 100)
+	if !errors.Is(err, dbErr) {
+		t.Errorf("repository error: err = %v, want %v", err, dbErr)
 	}
 }

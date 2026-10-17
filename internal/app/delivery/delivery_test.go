@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -15,12 +15,14 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/go-chi/chi/v5"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/mock/gomock"
 
+	"quizon/internal/app/delivery/mock"
 	"quizon/internal/app/usecase"
-	"quizon/internal/app/web/mocks"
+	usecasemock "quizon/internal/app/usecase/mock"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 	"quizon/internal/utils"
@@ -33,6 +35,8 @@ const (
 	newGamePath  string = "/admin/games/new"
 	teamsPath    string = "/admin/games/7/teams"
 	adminLogin   string = "admin"
+	// testDomain - домен куки входа в тестах
+	testDomain string = "quiz-on.ru"
 	// locationFact - место игры в фактах карточки
 	locationFact string = "<dt>место</dt><dd>" + defaultGameLocation + "</dd>"
 )
@@ -40,29 +44,30 @@ const (
 var testNow = time.Date(2026, time.October, 16, 12, 0, 0, 0, utils.LocMsk)
 
 // mockUsecase - мок usecase без ожиданий: вызов, которого тест не задал, роняет тест
-func mockUsecase(t *testing.T) *mocks.MockUsecase {
+func mockUsecase(t *testing.T) *mock.MockUsecase {
 	t.Helper()
 
-	return mocks.NewMockUsecase(gomock.NewController(t))
+	return mock.NewMockUsecase(gomock.NewController(t))
 }
 
 // expectGames - главная получит список игр games
-func expectGames(uc *mocks.MockUsecase, games ...usecase.GameListItem) {
+func expectGames(uc *mock.MockUsecase, games ...usecase.GameListItem) {
 	uc.EXPECT().ListGames(gomock.Any(), int64(1), gamesPerPage).Return(games, nil)
 }
 
 // expectGame - loadGame найдёт игру game со статусом регистрации status
-func expectGame(uc *mocks.MockUsecase, game model.Games, status usecase.RegistrationStatus) {
+func expectGame(uc *mock.MockUsecase, game model.Games, status usecase.RegistrationStatus) {
 	uc.EXPECT().GetGame(gomock.Any(), game.ID).Return(usecase.GameListItem{Games: game, Status: status}, nil).AnyTimes()
 }
 
 // expectTeams - страница участников игры game со списком teams. Статус регистрации странице не нужен
-func expectTeams(uc *mocks.MockUsecase, game model.Games, teams []usecase.Registration) {
+func expectTeams(uc *mock.MockUsecase, game model.Games, teams []usecase.Registration) {
 	expectGame(uc, game, "")
 	uc.EXPECT().ListRegistrations(gomock.Any(), game.ID).Return(teams, nil).AnyTimes()
 }
 
-// testTeams - три команды со случайными данными в порядке подачи. В testGame основа 2, так что третья в резерве
+// testTeams - три команды со случайными данными в порядке подачи, как их отдаёт usecase.
+// В testGame основа 2, так что третья — первая в резерве
 func testTeams() []usecase.Registration {
 	team := func(number int64) usecase.Registration {
 		reg := testsupport.FakeRegistration(7)
@@ -70,8 +75,10 @@ func testTeams() []usecase.Registration {
 
 		return usecase.Registration{Registrations: reg, Number: number}
 	}
+	teams := []usecase.Registration{team(1), team(2), team(3)}
+	teams[2].Reserve, teams[2].FirstReserve = true, true
 
-	return []usecase.Registration{team(1), team(2), team(3)}
+	return teams
 }
 
 // withSecondDeleted - те же команды после удаления второй (id 20), как их отдаёт usecase:
@@ -80,8 +87,9 @@ func withSecondDeleted(teams []usecase.Registration) []usecase.Registration {
 	res := slices.Clone(teams)
 	deletedAt := testNow
 	res[1].DeletedAt = &deletedAt
-	res[1].Number = 0
+	res[1].Deleted, res[1].Number = true, 0
 	res[2].Number = 2
+	res[2].Reserve, res[2].FirstReserve = false, false
 
 	return res
 }
@@ -93,7 +101,7 @@ func teamName(teams []usecase.Registration, i int) string {
 
 func testCookie(value string) *http.Cookie {
 	return &http.Cookie{
-		Name:     usecase.AuthorizationTokenName,
+		Name:     sessionCookie,
 		Value:    value,
 		Secure:   true,
 		HttpOnly: true,
@@ -102,14 +110,14 @@ func testCookie(value string) *http.Cookie {
 }
 
 // newTestRouter - веб-интерфейс на моке uc. Сессия админа одна — adminToken
-func newTestRouter(t *testing.T, uc *mocks.MockUsecase) http.Handler {
+func newTestRouter(t *testing.T, uc *mock.MockUsecase) http.Handler {
 	t.Helper()
 
 	uc.EXPECT().CheckSession(adminToken).Return(true).AnyTimes()
 
-	wb, err := New(uc)
+	wb, err := New(uc, testDomain)
 	if err != nil {
-		t.Fatalf("can't create web: %v", err)
+		t.Fatalf("can't create delivery: %v", err)
 	}
 
 	r := chi.NewRouter()
@@ -371,6 +379,11 @@ func TestRegister(t *testing.T) {
 			name: "not opened yet", err: usecase.ErrNotOpenedYet, wantText: "<h2>Регистрация ещё не открыта</h2>",
 			wantClass: `class="outcome outcome--waiting">`,
 		},
+		{
+			// игра началась, пока капитан заполнял анкету: время проверяет usecase, delivery показывает итог
+			name: "game started", status: usecase.StatusFinished, wantText: "Игра уже прошла",
+			wantClass: `class="outcome outcome--finished"`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -415,13 +428,17 @@ func TestRegisterValidation(t *testing.T) {
 	form.Set("phone", "123")
 	form.Del("team_name")
 
-	// анкета с ошибками до usecase не доходит: CreateRegistration мок не ждёт.
+	// правила анкеты проверяет usecase, delivery показывает его нарушения у полей.
 	// У каждого подтеста свой мок: подтесты параллельные
 	newRouter := func(t *testing.T) http.Handler {
 		t.Helper()
 
 		uc := mockUsecase(t)
 		expectGame(uc, testGame(), usecase.StatusOk)
+		uc.EXPECT().CreateRegistration(gomock.Any(), gomock.Any()).Return("", usecase.ValidationError{
+			usecase.FieldPhone:    usecase.ErrBadPhone,
+			usecase.FieldTeamName: usecase.ErrRequired,
+		})
 
 		return newTestRouter(t, uc)
 	}
@@ -454,6 +471,73 @@ func TestRegisterValidation(t *testing.T) {
 		}
 		assertContains(t, rec.Body.String(), "<!doctype html>", "Укажите название команды")
 	})
+}
+
+// TestRegisterPlayersAmount - число участников delivery разбирает сам: без числа анкету не собрать,
+// и до usecase она не доходит
+func TestRegisterPlayersAmount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "empty", value: "", want: "Укажите, сколько человек придёт"},
+		{name: "not a number", value: "много", want: "Нужно число от 1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			uc := mockUsecase(t)
+			expectGame(uc, testGame(), usecase.StatusOk)
+			form := validRegistration()
+			form.Set("players_amount", tt.value)
+
+			rec := do(
+				t,
+				newTestRouter(t, uc),
+				request{method: http.MethodPost, path: registerPath, form: form, htmx: true},
+			)
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d", rec.Code)
+			}
+			assertContains(t, rec.Body.String(), tt.want, `aria-invalid="true"`)
+		})
+	}
+}
+
+// TestRuleMessagesCoverUsecase - на каждое правило, которое нарушает настоящий usecase,
+// у поля формы есть своя подсказка, а не общая «Проверьте это поле»
+func TestRuleMessagesCoverUsecase(t *testing.T) {
+	t.Parallel()
+
+	// с нарушениями usecase до репозитория не доходит: мок ничего не ждёт
+	uc := usecase.NewUsecase(usecasemock.NewMockRepository(gomock.NewController(t)), nil, clock.NewMock())
+	covered := func(t *testing.T, messages ruleMessages, err error) {
+		t.Helper()
+
+		var invalid usecase.ValidationError
+		if !errors.As(err, &invalid) {
+			t.Fatalf("want ValidationError, got %v", err)
+		}
+		for field, rule := range invalid {
+			if _, ok := messages[field][rule]; !ok {
+				t.Errorf("no message for %s: %v", field, rule)
+			}
+		}
+	}
+
+	// пустая игра нарушает правила всех полей, кроме порядка времён и резерва: они во второй
+	for _, game := range []model.Games{{}, {StartTime: testNow, RegistrationOpenTime: testNow, ReserveAmount: -1}} {
+		_, err := uc.CreateGame(t.Context(), game)
+		covered(t, gameRuleMessages, err)
+	}
+	for _, reg := range []model.Registrations{{}, {Phone: "123"}} {
+		_, err := uc.CreateRegistration(t.Context(), reg)
+		covered(t, registrationRuleMessages, err)
+	}
 }
 
 func TestRegistrationPageStates(t *testing.T) {
@@ -659,7 +743,7 @@ func TestLogin(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "nope").Return(nil, usecase.ErrWrongPassword)
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "nope").Return(usecase.Session{}, usecase.ErrWrongPassword)
 		form := loginForm("nope")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusUnprocessableEntity {
@@ -672,20 +756,25 @@ func TestLogin(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(testCookie("new-token"), nil)
+		session := usecase.Session{Token: "new-token", ExpiresAt: testNow.Add(24 * time.Hour)}
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(session, nil)
 		form := loginForm("secret")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 			t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 		}
-		assertContains(t, rec.Header().Get("Set-Cookie"), "new-token")
+		// куку из сессии собирает delivery: токен, срок и домен из настроек, только https и не видна из js
+		assertContains(t, rec.Header().Get("Set-Cookie"),
+			sessionCookie+"=new-token", "Expires=Sat, 17 Oct 2026 09:00:00 GMT", "Domain="+testDomain,
+			"Path=/", "HttpOnly", "Secure", "SameSite=Lax",
+		)
 	})
 
 	t.Run("server error", func(t *testing.T) {
 		t.Parallel()
 
 		uc := mockUsecase(t)
-		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(nil, errors.New("db is down"))
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(usecase.Session{}, errors.New("db is down"))
 		form := loginForm("secret")
 		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusInternalServerError {
@@ -734,13 +823,32 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("registration_open_time", "2026-11-02T12:00")
 
-		// неверная игра до usecase не доходит: CreateGame мок не ждёт
-		h := newTestRouter(t, mockUsecase(t))
-		rec := do(t, h, request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
+		// правила игры проверяет usecase, delivery показывает его нарушения у полей
+		uc := mockUsecase(t)
+		uc.EXPECT().CreateGame(gomock.Any(), gomock.Any()).Return(int64(0), usecase.ValidationError{
+			usecase.FieldRegistrationOpenTime: usecase.ErrOpensAfterStart,
+		})
+		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
-		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры")
+		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры", `aria-invalid="true"`)
+	})
+
+	t.Run("not a date", func(t *testing.T) {
+		t.Parallel()
+
+		bad := url.Values{}
+		maps.Copy(bad, form)
+		bad.Set("start_time", "завтра")
+
+		// дату delivery разбирает сам: без неё игру не собрать, и до usecase дело не доходит
+		req := request{method: http.MethodPost, path: newGamePath, form: bad, admin: true}
+		rec := do(t, newTestRouter(t, mockUsecase(t)), req)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d", rec.Code)
+		}
+		assertContains(t, rec.Body.String(), "Укажите дату и время", `aria-invalid="true"`)
 	})
 }
 
@@ -813,11 +921,14 @@ func TestTeamsConfirmDialog(t *testing.T) {
 func TestTeamsConfirmWithoutReserve(t *testing.T) {
 	t.Parallel()
 
+	// при трёх местах в основе все три команды в ней, резерва нет
 	game := testGame()
 	game.MainAmount = 3
+	teams := testTeams()
+	teams[2].Reserve, teams[2].FirstReserve = false, false
 
-	rec := do(t, teamsRouter(t, game, testTeams()), request{method: http.MethodGet, path: teamsPath, admin: true})
-	assertNotContains(t, rec.Body.String(), "из резерва")
+	rec := do(t, teamsRouter(t, game, teams), request{method: http.MethodGet, path: teamsPath, admin: true})
+	assertNotContains(t, rec.Body.String(), "из резерва", "is-reserve")
 }
 
 func TestTeamsExport(t *testing.T) {

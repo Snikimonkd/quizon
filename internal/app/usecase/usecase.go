@@ -1,15 +1,18 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 
 	"github.com/benbjohnson/clock"
+	"github.com/jackc/pgx/v5"
 )
 
-//go:generate go tool mockgen -typed -destination=mocks/repository_mock.go -package=mocks . Repository
-
 // Repository - интерфейс инкапсулирующий в себе все репозитории
+//
+//go:generate go tool mockgen -typed -destination=mock/repository_mock.go -package=mock . Repository
 type Repository interface {
+	TxRepository
 	ListGamesRepository
 	GetGameRepository
 	ListRegistrationsRepository
@@ -20,21 +23,30 @@ type Repository interface {
 	LoginRepository
 }
 
+// TxRepository - транзакции и блокировка игры. Что делать внутри транзакции, решает usecase:
+// репозиторий только выполняет запросы
+type TxRepository interface {
+	// Transactional - выполняет fn в одной транзакции: коммит, если fn вернула nil, иначе откат
+	Transactional(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
+	// LockGame - блокирует игру до конца транзакции: регистрации и удаления в одной игре идут по очереди
+	LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error
+}
+
 type usecase struct {
 	repository Repository
 	clock      clock.Clock
 
-	cookieCache CookieCache
+	sessions SessionStore
 }
 
-// NewUsecase - конструктор для usecase
-func NewUsecase(repository Repository, cookieCache CookieCache) usecase {
+// NewUsecase - конструктор для usecase. clk - часы: в main настоящие, в тестах стоят на месте
+func NewUsecase(repository Repository, sessions SessionStore, clk clock.Clock) usecase {
 	return usecase{
-		repository:  repository,
-		clock:       clock.New(),
-		cookieCache: cookieCache,
+		repository: repository,
+		clock:      clk,
+		sessions:   sessions,
 	}
 }
 
-// ErrNotFound - ошибка "не найдено"
+// ErrNotFound - нет такой игры, регистрации или админа. Репозиторий отдаёт её вместо ошибок базы
 var ErrNotFound = errors.New("not found error")

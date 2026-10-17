@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ var teamsHeader = []any{
 	"Время регистрации",
 }
 
-func (wb *Web) exportTeams(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) exportTeams(w http.ResponseWriter, r *http.Request) {
 	view, ok := wb.listTeams(w, r)
 	if !ok {
 		return
@@ -55,7 +55,7 @@ func teamsXLSX(view teamsView) (*bytes.Buffer, error) {
 	}
 
 	activeTeams := lo.Filter(view.Teams, func(r usecase.Registration, _ int) bool {
-		return r.DeletedAt == nil
+		return !r.Deleted
 	})
 	// в выгрузку идут только оставшиеся в игре команды
 	for i, t := range activeTeams {

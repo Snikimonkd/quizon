@@ -1,4 +1,4 @@
-{{/* Поле формы: label, input, подсказка или ошибка. Ожидает web.field */}}
+{{/* Поле формы: label, input, подсказка или ошибка. Ожидает delivery.field */}}
 {{define "field"}}
 <label for="f-{{.Name}}">{{.Label}}{{if .Required}}<span class="req" aria-hidden="true"> *</span>{{end}}</label>
 <input id="f-{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"
@@ -14,10 +14,10 @@
 {{end}}
 
 {{/* Когда откроется регистрация: сервер пишет словами («завтра в 20:00»), меньше чем за сутки app.js
-     показывает отсчёт и обновляет его каждую секунду. Ожидает web.gameView */}}
+     показывает отсчёт и обновляет его каждую секунду. Ожидает delivery.gameView */}}
 {{define "countdown"}}<time class="countdown" datetime="{{iso .RegistrationOpenTime}}" data-countdown>{{.RegistrationOpens}}</time>{{end}}
 
-{{/* Вывеска игры: название и дата с днём недели (без времени). Лампы по краю рисует CSS. Ожидает web.gameView.
+{{/* Вывеска игры: название и дата с днём недели (без времени). Лампы по краю рисует CSS. Ожидает delivery.gameView.
      Дата в разметке после заголовка, чтобы читалась вместе с ним; первой на вывеске её ставит CSS */}}
 {{define "show_sign"}}
 <div class="marquee show__sign">
@@ -29,7 +29,7 @@
 </div>
 {{end}}
 
-{{/* Место и время начала под вывеской. Ожидает web.gameView */}}
+{{/* Место и время начала под вывеской. Ожидает delivery.gameView */}}
 {{define "show_facts"}}
 <dl class="show__facts">
   <div><dt>место</dt><dd>{{.Location}}</dd></div>
@@ -46,7 +46,7 @@
 {{- else}}Игра завершена{{end}}
 {{- end}}
 
-{{/* Предстоящая игра на главной: вывеска, факты и действие по состоянию. Ожидает web.gameView */}}
+{{/* Предстоящая игра на главной: вывеска, факты и действие по состоянию. Ожидает delivery.gameView */}}
 {{define "game_card"}}
 <article class="show show--{{.State}}{{if .Admin}} show--admin{{end}}">
   {{template "show_sign" .}}
@@ -68,7 +68,7 @@
 </article>
 {{end}}
 
-{{/* Прошедшая игра строкой в архиве на главной. Ожидает web.gameView */}}
+{{/* Прошедшая игра строкой в архиве на главной. Ожидает delivery.gameView */}}
 {{define "archive_row"}}
 <li class="archive__row">
   <p class="archive__date"><time datetime="{{iso .StartTime}}">{{ruDate .StartTime}}</time>, {{ruWeekday .StartTime}}</p>
@@ -78,7 +78,7 @@
 </li>
 {{end}}
 
-{{/* Итог регистрации вместо формы. Ожидает web.registerView.
+{{/* Итог регистрации вместо формы. Ожидает delivery.registerView.
      В ожидании отсчёт меняется каждую секунду, поэтому живая область там — только заголовок, а не весь итог */}}
 {{define "outcome"}}
 <div class="outcome outcome--{{.Outcome}}{{if or (eq .Outcome "ok") (eq .Outcome "reserve")}} marquee{{end}}"{{if ne .Outcome "waiting"}} role="status"{{end}}>

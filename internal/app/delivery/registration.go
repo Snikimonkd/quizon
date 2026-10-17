@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -6,13 +6,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
-
-	"quizon/internal/app/usecase"
-	"quizon/internal/generated/postgres/public/model"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/samber/lo"
+
+	"quizon/internal/app/usecase"
+	"quizon/internal/generated/postgres/public/model"
 )
 
 // outcome - чем закончилась попытка зарегистрироваться:
@@ -50,36 +49,29 @@ func parseRegistrationForm(r *http.Request) registrationForm {
 	}
 }
 
+// validate - ошибки разбора анкеты: сколько человек придёт — целое число. Пустое число не разобрать,
+// поэтому его наличие проверяется здесь. Остальные правила анкеты проверяет usecase
 func (f registrationForm) validate() map[string]string {
 	return fieldErrors(validation.ValidateStruct(
 		&f,
-		validation.Field(&f.CaptainName, validation.Required.Error("Укажите имя капитана")),
-		validation.Field(&f.Phone, validation.Required.Error("Укажите номер телефона"), validation.By(phoneRule)),
-		validation.Field(&f.Telegram, validation.Required.Error("Укажите ник в Telegram")),
-		validation.Field(&f.TeamName, validation.Required.Error("Укажите название команды")),
 		validation.Field(
 			&f.PlayersAmount,
 			validation.Required.Error("Укажите, сколько человек придёт"),
-			intAtLeast(1, "Нужно число от 1"),
+			integer("Нужно число от 1"),
 		),
 	))
 }
 
-// phoneRule - в номере должно быть от 10 до 15 цифр, остальное (+, скобки, пробелы, дефисы) не важно
-func phoneRule(value any) error {
-	s, _ := value.(string)
-	digits := 0
-	for _, r := range s {
-		if unicode.IsDigit(r) {
-			digits++
-		}
-	}
-
-	if digits < 10 || digits > 15 {
-		return validation.NewError("phone", "Похоже, в номере ошибка")
-	}
-
-	return nil
+// registrationRuleMessages - подсказки у полей анкеты на нарушенные правила usecase
+var registrationRuleMessages = ruleMessages{
+	usecase.FieldCaptainName: {usecase.ErrRequired: "Укажите имя капитана"},
+	usecase.FieldPhone: {
+		usecase.ErrRequired: "Укажите номер телефона",
+		usecase.ErrBadPhone: "Похоже, в номере ошибка",
+	},
+	usecase.FieldTelegram:      {usecase.ErrRequired: "Укажите ник в Telegram"},
+	usecase.FieldTeamName:      {usecase.ErrRequired: "Укажите название команды"},
+	usecase.FieldPlayersAmount: {usecase.ErrTooSmall: "Нужно число от 1"},
 }
 
 func (f registrationForm) registration(gameID int64) model.Registrations {
@@ -139,7 +131,7 @@ type registerView struct {
 	Outcome outcome
 }
 
-func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) registrationPage(w http.ResponseWriter, r *http.Request) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return
@@ -157,7 +149,7 @@ func (wb *Web) registrationPage(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageRegister, view)
 }
 
-func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) register(w http.ResponseWriter, r *http.Request) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return
@@ -180,7 +172,13 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status, err := wb.usecase.CreateRegistration(r.Context(), form.registration(game.ID))
+	invalid, isInvalid := errors.AsType[usecase.ValidationError](err)
 	switch {
+	case isInvalid:
+		// правила анкеты проверяет usecase, здесь только показываем нарушения у полей
+		view.Fields = form.fields(registrationRuleMessages.messages(invalid))
+		wb.renderRegistration(w, r, http.StatusUnprocessableEntity, view)
+		return
 	case errors.Is(err, usecase.ErrNotOpenedYet):
 		view.Outcome = outcomeWaiting
 	case err != nil:
@@ -207,7 +205,7 @@ func closedOutcome(game gameView) outcome {
 	return ""
 }
 
-func (wb *Web) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
+func (wb *delivery) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
 	if isHTMX(r) {
 		wb.renderBlock(w, r, status, pageRegister, "registration", view)
 		return

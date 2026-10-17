@@ -59,12 +59,12 @@
       {{range .Teams}}
       {{/* первая команда резерва отделена от основы линией сверху */}}
       <tr
-        {{- if .DeletedAt}} class="is-deleted" title="Команда удалена"
-        {{- else if eq .Number $.ReserveStart}} class="is-reserve reserve-start"
-        {{- else if gt .Number $.MainAmount}} class="is-reserve"{{end}}>
+        {{- if .Deleted}} class="is-deleted" title="Команда удалена"
+        {{- else if .FirstReserve}} class="is-reserve reserve-start"
+        {{- else if .Reserve}} class="is-reserve"{{end}}>
         <td>
-          {{- if .DeletedAt}}<span class="visually-hidden">Удалена</span>
-          {{- else}}{{if eq .Number $.ReserveStart}}<span class="visually-hidden">Дальше резерв. </span>{{end}}{{.Number}}{{end -}}
+          {{- if .Deleted}}<span class="visually-hidden">Удалена</span>
+          {{- else}}{{if .FirstReserve}}<span class="visually-hidden">Дальше резерв. </span>{{end}}{{.Number}}{{end -}}
         </td>
         <td>{{.TeamName}}</td>
         <td>{{.Telegram}}</td>
@@ -75,12 +75,12 @@
         <td>{{.PlayersAmount}}</td>
         <td class="nowrap">{{fullTime .CreatedAt}}</td>
         <td>
-          {{if not .DeletedAt}}
+          {{if not .Deleted}}
           <form method="post" action="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" class="row-action"
             hx-post="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" hx-target="#teams"
             hx-confirm="Удалить команду «{{.TeamName}}» из игры?" hx-disable="find button"
             data-confirm-text="Команда потеряет место в игре и останется в списке серой, без номера. Вернуть её отсюда не получится.
-              {{- if and (le .Number $.MainAmount) $.FirstReserve}} Её место в основе займёт «{{$.FirstReserve}}» из резерва.{{end}}">
+              {{- if and (not .Reserve) $.FirstReserveName}} Её место в основе займёт «{{$.FirstReserveName}}» из резерва.{{end}}">
             <button type="submit" class="icon-button" title="Удалить команду" aria-label="Удалить команду «{{.TeamName}}»">
               {{/* mdi-delete, тот же значок, что был в прежнем фронте */}}
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12Z"/></svg>

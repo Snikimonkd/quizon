@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,6 +23,16 @@ func Debug() bool {
 	_, ok := os.LookupEnv("DEBUG")
 
 	return ok
+}
+
+// Domain - домен куки входа из переменной окружения DOMAIN: localhost локально, quiz-on.ru на проде
+func Domain() (string, error) {
+	domain := os.Getenv("DOMAIN")
+	if domain == "" {
+		return "", errors.New("empty domain in env variable")
+	}
+
+	return domain, nil
 }
 
 // NewServer - собирает http-сервер, маршруты регистрирует routes. debug — см. Debug

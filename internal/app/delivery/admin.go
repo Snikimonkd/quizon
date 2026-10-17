@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -66,34 +66,33 @@ var moscowTime = validation.By(func(value any) error {
 	return nil
 })
 
+// validate - ошибки разбора формы: даты в формате datetime-local, количества — целые числа.
+// Пустое число не разобрать, поэтому его наличие проверяется здесь. Остальные правила игры проверяет usecase
 func (f gameForm) validate() map[string]string {
-	errs := fieldErrors(validation.ValidateStruct(
+	return fieldErrors(validation.ValidateStruct(
 		&f,
-		validation.Field(&f.Name, validation.Required.Error("Укажите название")),
-		validation.Field(&f.Location, validation.Required.Error("Укажите место")),
-		validation.Field(&f.StartTime, validation.Required.Error("Укажите дату и время игры"), moscowTime),
-		validation.Field(
-			&f.RegistrationOpenTime,
-			validation.Required.Error("Укажите, когда открыть регистрацию"),
-			moscowTime,
-		),
+		validation.Field(&f.StartTime, moscowTime),
+		validation.Field(&f.RegistrationOpenTime, moscowTime),
 		validation.Field(
 			&f.MainAmount,
 			validation.Required.Error("Сколько команд играет?"),
-			intAtLeast(1, "Нужно число от 1"),
+			integer("Нужно число от 1"),
 		),
-		validation.Field(&f.ReserveAmount, intAtLeast(0, "Нужно число от 0")),
+		validation.Field(&f.ReserveAmount, integer("Нужно число от 0")),
 	))
-	if len(errs) > 0 {
-		return errs
-	}
+}
 
-	start, open := f.times()
-	if !open.Before(start) {
-		return map[string]string{"RegistrationOpenTime": "Регистрация должна открыться до начала игры"}
-	}
-
-	return nil
+// gameRuleMessages - подсказки у полей формы игры на нарушенные правила usecase
+var gameRuleMessages = ruleMessages{
+	usecase.FieldName:      {usecase.ErrRequired: "Укажите название"},
+	usecase.FieldLocation:  {usecase.ErrRequired: "Укажите место"},
+	usecase.FieldStartTime: {usecase.ErrRequired: "Укажите дату и время игры"},
+	usecase.FieldRegistrationOpenTime: {
+		usecase.ErrRequired:        "Укажите, когда открыть регистрацию",
+		usecase.ErrOpensAfterStart: "Регистрация должна открыться до начала игры",
+	},
+	usecase.FieldMainAmount:    {usecase.ErrTooSmall: "Нужно число от 1"},
+	usecase.FieldReserveAmount: {usecase.ErrTooSmall: "Нужно число от 0"},
 }
 
 func (f gameForm) times() (time.Time, time.Time) {
@@ -151,7 +150,7 @@ type gameFormView struct {
 	Fields []field
 }
 
-func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) newGamePage(w http.ResponseWriter, r *http.Request) {
 	form := gameForm{
 		Name:          defaultGameName,
 		Location:      defaultGameLocation,
@@ -161,17 +160,22 @@ func (wb *Web) newGamePage(w http.ResponseWriter, r *http.Request) {
 	wb.renderPage(w, r, http.StatusOK, pageGameNew, gameFormView{Fields: form.fields(nil)})
 }
 
-func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) createGame(w http.ResponseWriter, r *http.Request) {
 	form := parseGameForm(r)
 
 	errs := form.validate()
 	if len(errs) > 0 {
-		view := gameFormView{Fields: form.fields(errs)}
-		wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, view)
+		wb.renderGameForm(w, r, form, errs)
 		return
 	}
 
+	// правила игры проверяет usecase, здесь только показываем нарушения у полей
 	_, err := wb.usecase.CreateGame(r.Context(), form.game())
+	invalid, isInvalid := errors.AsType[usecase.ValidationError](err)
+	if isInvalid {
+		wb.renderGameForm(w, r, form, gameRuleMessages.messages(invalid))
+		return
+	}
 	if err != nil {
 		wb.serverError(w, r, err)
 		return
@@ -180,31 +184,32 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/")
 }
 
+// renderGameForm - форма новой игры с ошибками errs у полей
+func (wb *delivery) renderGameForm(w http.ResponseWriter, r *http.Request, form gameForm, errs map[string]string) {
+	wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, gameFormView{Fields: form.fields(errs)})
+}
+
 type teamsView struct {
 	Game gameView
 	// Teams - все регистрации в порядке подачи, удалённые тоже: в таблице они серые и без номера
 	Teams []usecase.Registration
 	// ActiveCount - сколько команд осталось в игре, без удалённых
 	ActiveCount int
-	// MainAmount - команды с номером больше этого попали в резерв
+	// MainAmount - мест в основе, как задали при создании игры
 	MainAmount int64
 	// ReserveAmount - мест в резерве, как задали при создании игры
 	ReserveAmount int64
 }
 
-// ReserveStart - номер первой команды в резерве
-func (v teamsView) ReserveStart() int64 {
-	return v.MainAmount + 1
-}
-
-// FirstReserve - первая команда резерва: она займёт место команды, удалённой из основы. Пусто, если резерва нет
-func (v teamsView) FirstReserve() string {
-	team, _ := lo.Find(v.Teams, func(t usecase.Registration) bool { return t.Number == v.ReserveStart() })
+// FirstReserveName - название первой команды резерва: она займёт место команды, удалённой из основы.
+// Пусто, если резерва нет
+func (v teamsView) FirstReserveName() string {
+	team, _ := lo.Find(v.Teams, func(t usecase.Registration) bool { return t.FirstReserve })
 
 	return team.TeamName
 }
 
-func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
+func (wb *delivery) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, bool) {
 	game, ok := wb.loadGame(w, r)
 	if !ok {
 		return teamsView{}, false
@@ -219,13 +224,13 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 	return teamsView{
 		Game:          newGameView(game, time.Now()),
 		Teams:         teams,
-		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return t.DeletedAt == nil }),
+		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return !t.Deleted }),
 		MainAmount:    game.MainAmount,
 		ReserveAmount: game.ReserveAmount,
 	}, true
 }
 
-func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) teamsPage(w http.ResponseWriter, r *http.Request) {
 	view, ok := wb.listTeams(w, r)
 	if !ok {
 		return
@@ -236,7 +241,7 @@ func (wb *Web) teamsPage(w http.ResponseWriter, r *http.Request) {
 
 // deleteRegistration - убирает команду из игры и показывает обновлённый список: номера и граница резерва сдвигаются.
 // В адресе id регистрации (registrations.id), не «ID команды» из анкеты
-func (wb *Web) deleteRegistration(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)

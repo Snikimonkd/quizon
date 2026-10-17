@@ -1,4 +1,4 @@
-package web
+package delivery
 
 import (
 	"errors"
@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"quizon/internal/app/usecase"
-
 	"github.com/go-chi/chi/v5"
+
+	"quizon/internal/app/usecase"
 )
 
 // gamesPerPage - сколько игр показываем на главной
@@ -73,7 +73,7 @@ type homeView struct {
 	Games []gameView
 }
 
-func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
+func (wb *delivery) home(w http.ResponseWriter, r *http.Request) {
 	items, err := wb.usecase.ListGames(r.Context(), 1, gamesPerPage)
 	if err != nil {
 		wb.serverError(w, r, err)
@@ -93,7 +93,7 @@ func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadGame - достаёт игру из {id} в пути вместе со статусом регистрации; при ошибке сам пишет ответ
-func (wb *Web) loadGame(w http.ResponseWriter, r *http.Request) (usecase.GameListItem, bool) {
+func (wb *delivery) loadGame(w http.ResponseWriter, r *http.Request) (usecase.GameListItem, bool) {
 	gameID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
