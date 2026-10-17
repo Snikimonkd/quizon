@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"errors"
 	"html/template"
 	"maps"
@@ -9,17 +8,19 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/xuri/excelize/v2"
+	"go.uber.org/mock/gomock"
 
 	"quizon/internal/app/usecase"
+	"quizon/internal/app/web/mocks"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/pkg/testsupport"
 	"quizon/internal/utils"
@@ -38,104 +39,56 @@ const (
 
 var testNow = time.Date(2026, time.October, 16, 12, 0, 0, 0, utils.LocMsk)
 
-type fakeUsecase struct {
-	mu sync.Mutex
+// mockUsecase - мок usecase без ожиданий: вызов, которого тест не задал, роняет тест
+func mockUsecase(t *testing.T) *mocks.MockUsecase {
+	t.Helper()
 
-	games           []usecase.GameListItem
-	game            model.Games
-	status          usecase.RegistrationStatus
-	registrationErr error
-	teams           []usecase.Registration
-	loginErr        error
-	// gameStatus - статус регистрации, с которым GetGame отдаёт game. Не путать с status - итогом CreateRegistration
-	gameStatus usecase.RegistrationStatus
-
-	gotRegistration *model.Registrations
-	gotGame         *model.Games
-	gotDeleted      []int64
+	return mocks.NewMockUsecase(gomock.NewController(t))
 }
 
-func (f *fakeUsecase) ListGames(context.Context, int64, int64) ([]usecase.GameListItem, error) {
-	return f.games, nil
+// expectGames - главная получит список игр games
+func expectGames(uc *mocks.MockUsecase, games ...usecase.GameListItem) {
+	uc.EXPECT().ListGames(gomock.Any(), int64(1), gamesPerPage).Return(games, nil)
 }
 
-func (f *fakeUsecase) GetGame(_ context.Context, gameID int64) (usecase.GameListItem, error) {
-	if gameID != f.game.ID {
-		return usecase.GameListItem{}, usecase.ErrNotFound
+// expectGame - loadGame найдёт игру game со статусом регистрации status
+func expectGame(uc *mocks.MockUsecase, game model.Games, status usecase.RegistrationStatus) {
+	uc.EXPECT().GetGame(gomock.Any(), game.ID).Return(usecase.GameListItem{Games: game, Status: status}, nil).AnyTimes()
+}
+
+// expectTeams - страница участников игры game со списком teams. Статус регистрации странице не нужен
+func expectTeams(uc *mocks.MockUsecase, game model.Games, teams []usecase.Registration) {
+	expectGame(uc, game, "")
+	uc.EXPECT().ListRegistrations(gomock.Any(), game.ID).Return(teams, nil).AnyTimes()
+}
+
+// testTeams - три команды со случайными данными в порядке подачи. В testGame основа 2, так что третья в резерве
+func testTeams() []usecase.Registration {
+	team := func(number int64) usecase.Registration {
+		reg := testsupport.FakeRegistration(7)
+		reg.ID = number * 10
+
+		return usecase.Registration{Registrations: reg, Number: number}
 	}
 
-	return usecase.GameListItem{Games: f.game, Status: f.gameStatus}, nil
+	return []usecase.Registration{team(1), team(2), team(3)}
 }
 
-func (f *fakeUsecase) CreateRegistration(
-	_ context.Context,
-	in model.Registrations,
-) (usecase.RegistrationStatus, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.gotRegistration = &in
+// withSecondDeleted - те же команды после удаления второй (id 20), как их отдаёт usecase:
+// удалённая остаётся в списке без номера, третья поднимается в основу
+func withSecondDeleted(teams []usecase.Registration) []usecase.Registration {
+	res := slices.Clone(teams)
+	deletedAt := testNow
+	res[1].DeletedAt = &deletedAt
+	res[1].Number = 0
+	res[2].Number = 2
 
-	return f.status, f.registrationErr
+	return res
 }
 
-func (f *fakeUsecase) CreateGame(_ context.Context, in model.Games) (int64, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.gotGame = &in
-
-	return 1, nil
-}
-
-func (f *fakeUsecase) ListRegistrations(context.Context, int64) ([]usecase.Registration, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return append([]usecase.Registration(nil), f.teams...), nil
-}
-
-func (f *fakeUsecase) DeleteRegistration(_ context.Context, gameID int64, registrationID int64) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if gameID != f.game.ID {
-		return usecase.ErrNotFound
-	}
-	for i, team := range f.teams {
-		if team.ID == registrationID && !team.Deleted() {
-			deletedAt := testNow
-			f.teams[i].DeletedAt = &deletedAt
-			f.renumber()
-			f.gotDeleted = append(f.gotDeleted, registrationID)
-			return nil
-		}
-	}
-
-	return usecase.ErrNotFound
-}
-
-func (f *fakeUsecase) Login(context.Context, string, string) (*http.Cookie, error) {
-	if f.loginErr != nil {
-		return nil, f.loginErr
-	}
-
-	return testCookie("new-token"), nil
-}
-
-// renumber - как в usecase: удалённая команда остаётся в списке без номера, остальные нумеруются по порядку
-func (f *fakeUsecase) renumber() {
-	var number int64
-	for i := range f.teams {
-		f.teams[i].Number = 0
-		if !f.teams[i].Deleted() {
-			number++
-			f.teams[i].Number = number
-		}
-	}
-}
-
-// teamName - название i-й команды фикстуры так, как его выводит html/template
-func (f *fakeUsecase) teamName(i int) string {
-	return template.HTMLEscapeString(f.teams[i].TeamName)
+// teamName - название i-й команды так, как его выводит html/template
+func teamName(teams []usecase.Registration, i int) string {
+	return template.HTMLEscapeString(teams[i].TeamName)
 }
 
 func testCookie(value string) *http.Cookie {
@@ -148,29 +101,22 @@ func testCookie(value string) *http.Cookie {
 	}
 }
 
-type fakeCache struct{}
+// newTestRouter - веб-интерфейс на моке uc. Сессия админа в кэше одна — adminToken, она живая ещё час
+func newTestRouter(t *testing.T, uc Usecase) http.Handler {
+	t.Helper()
 
-func (fakeCache) Get(key string) (*http.Cookie, bool) {
-	if key != adminToken {
-		return nil, false
-	}
-
-	return &http.Cookie{
+	session := &http.Cookie{
 		Name:     usecase.AuthorizationTokenName,
-		Value:    key,
+		Value:    adminToken,
 		Expires:  testNow.Add(time.Hour),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-	}, true
-}
+	}
+	cache := mocks.NewMockCookieCache(gomock.NewController(t))
+	cache.EXPECT().Get(adminToken).Return(session, true).AnyTimes()
 
-func (fakeCache) Del(string) {}
-
-func newTestRouter(t *testing.T, uc *fakeUsecase) http.Handler {
-	t.Helper()
-
-	wb, err := New(uc, fakeCache{})
+	wb, err := New(uc, cache)
 	if err != nil {
 		t.Fatalf("can't create web: %v", err)
 	}
@@ -264,20 +210,28 @@ func TestHome(t *testing.T) {
 	t.Parallel()
 
 	future := testNow.Add(48 * time.Hour)
-	uc := &fakeUsecase{games: []usecase.GameListItem{
+	games := []usecase.GameListItem{
 		listItem(1, future, testNow.Add(-time.Hour), usecase.StatusOk),
 		listItem(2, future, testNow.Add(-time.Hour), usecase.StatusReserve),
 		listItem(3, future, testNow.Add(-time.Hour), usecase.StatusClosed),
 		listItem(4, future, testNow.Add(time.Hour), usecase.StatusOk),
 		// у прошедшей игры места обычно разобраны: время важнее статуса, игра уходит в архив
 		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed),
-	}}
-	h := newTestRouter(t, uc)
+	}
+	// у каждого подтеста свой мок: подтесты параллельные
+	home := func(t *testing.T, admin bool) *httptest.ResponseRecorder {
+		t.Helper()
+
+		uc := mockUsecase(t)
+		expectGames(uc, games...)
+
+		return do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/", admin: admin})
+	}
 
 	t.Run("guest", func(t *testing.T) {
 		t.Parallel()
 
-		rec := do(t, h, request{method: http.MethodGet, path: "/"})
+		rec := home(t, false)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d", rec.Code)
 		}
@@ -335,7 +289,7 @@ func TestHome(t *testing.T) {
 	t.Run("admin", func(t *testing.T) {
 		t.Parallel()
 
-		rec := do(t, h, request{method: http.MethodGet, path: "/", admin: true})
+		rec := home(t, true)
 		assertContains(t, rec.Body.String(),
 			`href="/admin/games/1/teams"`,
 			"Создать игру",
@@ -350,9 +304,8 @@ func TestHome(t *testing.T) {
 func TestHomeOnlyPast(t *testing.T) {
 	t.Parallel()
 
-	uc := &fakeUsecase{games: []usecase.GameListItem{
-		listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed),
-	}}
+	uc := mockUsecase(t)
+	expectGames(uc, listItem(5, testNow.Add(-time.Hour), testNow.Add(-48*time.Hour), usecase.StatusClosed))
 	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
 	body := rec.Body.String()
 	assertContains(t, body, "Новых игр пока нет", "Прошедшие игры", `<li class="archive__row">`)
@@ -362,9 +315,8 @@ func TestHomeOnlyPast(t *testing.T) {
 func TestHomeOnlyUpcoming(t *testing.T) {
 	t.Parallel()
 
-	uc := &fakeUsecase{games: []usecase.GameListItem{
-		listItem(1, testNow.Add(48*time.Hour), testNow.Add(-time.Hour), usecase.StatusOk),
-	}}
+	uc := mockUsecase(t)
+	expectGames(uc, listItem(1, testNow.Add(48*time.Hour), testNow.Add(-time.Hour), usecase.StatusOk))
 	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
 	body := rec.Body.String()
 	assertContains(t, body, `class="playbill"`)
@@ -375,8 +327,9 @@ func TestHomeOnlyUpcoming(t *testing.T) {
 func TestHomeEmpty(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, &fakeUsecase{})
-	rec := do(t, h, request{method: http.MethodGet, path: "/"})
+	uc := mockUsecase(t)
+	expectGames(uc)
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/"})
 	assertNotContains(t, rec.Body.String(), "archive-title")
 	assertContains(t, rec.Body.String(),
 		"Игр пока нет",
@@ -432,10 +385,25 @@ func TestRegister(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			uc := &fakeUsecase{game: testGame(), status: tt.status, registrationErr: tt.err}
+			form := validRegistration()
+			amount, err := strconv.ParseInt(form.Get("players_amount"), 10, 64)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			uc := mockUsecase(t)
+			expectGame(uc, testGame(), usecase.StatusOk)
+			// анкета доходит до usecase как есть, пустые необязательные поля становятся nil
+			uc.EXPECT().CreateRegistration(gomock.Any(), model.Registrations{
+				GameID:        7,
+				TeamName:      form.Get("team_name"),
+				CaptainName:   form.Get("captain_name"),
+				Phone:         form.Get("phone"),
+				Telegram:      form.Get("telegram"),
+				PlayersAmount: amount,
+			}).Return(tt.status, tt.err)
 			h := newTestRouter(t, uc)
 
-			form := validRegistration()
 			rec := do(t, h, request{method: http.MethodPost, path: registerPath, form: form, htmx: true})
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d", rec.Code)
@@ -445,27 +413,6 @@ func TestRegister(t *testing.T) {
 			assertContains(t, body, tt.wantText, tt.wantClass, `role="status"`)
 			// htmx получает только фрагмент; в заголовках итога эмодзи больше нет
 			assertNotContains(t, body, "<!doctype html>", "<form", "🙈")
-
-			got := uc.gotRegistration
-			if got == nil {
-				t.Fatal("registration wasn't sent to usecase")
-			}
-			// анкета доходит до usecase как есть, пустые необязательные поля становятся nil
-			amount, err := strconv.ParseInt(form.Get("players_amount"), 10, 64)
-			if err != nil {
-				t.Fatal(err)
-			}
-			want := model.Registrations{
-				GameID:        7,
-				TeamName:      form.Get("team_name"),
-				CaptainName:   form.Get("captain_name"),
-				Phone:         form.Get("phone"),
-				Telegram:      form.Get("telegram"),
-				PlayersAmount: amount,
-			}
-			if *got != want {
-				t.Errorf("registration = %+v, want %+v", *got, want)
-			}
 		})
 	}
 }
@@ -473,17 +420,25 @@ func TestRegister(t *testing.T) {
 func TestRegisterValidation(t *testing.T) {
 	t.Parallel()
 
-	uc := &fakeUsecase{game: testGame()}
-	h := newTestRouter(t, uc)
-
 	form := validRegistration()
 	form.Set("phone", "123")
 	form.Del("team_name")
 
+	// анкета с ошибками до usecase не доходит: CreateRegistration мок не ждёт.
+	// У каждого подтеста свой мок: подтесты параллельные
+	newRouter := func(t *testing.T) http.Handler {
+		t.Helper()
+
+		uc := mockUsecase(t)
+		expectGame(uc, testGame(), usecase.StatusOk)
+
+		return newTestRouter(t, uc)
+	}
+
 	t.Run("htmx", func(t *testing.T) {
 		t.Parallel()
 
-		rec := do(t, h, request{method: http.MethodPost, path: registerPath, form: form, htmx: true})
+		rec := do(t, newRouter(t), request{method: http.MethodPost, path: registerPath, form: form, htmx: true})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
@@ -502,20 +457,11 @@ func TestRegisterValidation(t *testing.T) {
 	t.Run("no js", func(t *testing.T) {
 		t.Parallel()
 
-		rec := do(t, h, request{method: http.MethodPost, path: registerPath, form: form})
+		rec := do(t, newRouter(t), request{method: http.MethodPost, path: registerPath, form: form})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
 		assertContains(t, rec.Body.String(), "<!doctype html>", "Укажите название команды")
-	})
-
-	// подтесты параллельные, поэтому проверяем после них
-	t.Cleanup(func() {
-		uc.mu.Lock()
-		defer uc.mu.Unlock()
-		if uc.gotRegistration != nil {
-			t.Error("invalid registration was sent to usecase")
-		}
 	})
 }
 
@@ -596,7 +542,8 @@ func TestRegistrationPageStates(t *testing.T) {
 			if tt.game != nil {
 				game = tt.game(game)
 			}
-			uc := &fakeUsecase{game: game, gameStatus: tt.status}
+			uc := mockUsecase(t)
+			expectGame(uc, game, tt.status)
 			h := newTestRouter(t, uc)
 
 			rec := do(t, h, request{method: http.MethodGet, path: registerPath})
@@ -606,7 +553,14 @@ func TestRegistrationPageStates(t *testing.T) {
 
 			body := rec.Body.String()
 			// форму и итог htmx меняет внутри #registration
-			assertContains(t, body, tt.wantText, tt.wantState, locationFact, `<div id="registration" class="booth__form">`)
+			assertContains(
+				t,
+				body,
+				tt.wantText,
+				tt.wantState,
+				locationFact,
+				`<div id="registration" class="booth__form">`,
+			)
 			assertContains(t, body, tt.wantMore...)
 			assertNotContains(t, body, tt.notWant...)
 			if strings.Contains(body, `hx-post="`+registerPath+`"`) != tt.wantForm {
@@ -616,12 +570,10 @@ func TestRegistrationPageStates(t *testing.T) {
 				assertContains(t, body, `hx-target="#registration"`)
 			}
 
-			// POST в закрытую по времени регистрацию не доходит до usecase, даже если мест нет
+			// POST в закрытую по времени регистрацию не доходит до usecase, даже если мест нет:
+			// CreateRegistration мок не ждёт
 			if !tt.wantForm && tt.wantState != closedState {
 				do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration()})
-				if uc.gotRegistration != nil {
-					t.Error("registration was sent to usecase")
-				}
 			}
 		})
 	}
@@ -632,7 +584,10 @@ func TestRegistrationPageStates(t *testing.T) {
 func TestRegisterFullGame(t *testing.T) {
 	t.Parallel()
 
-	uc := &fakeUsecase{game: testGame(), gameStatus: usecase.StatusClosed, status: usecase.StatusOk}
+	uc := mockUsecase(t)
+	expectGame(uc, testGame(), usecase.StatusClosed)
+	// обе отправки ниже доходят до usecase
+	uc.EXPECT().CreateRegistration(gomock.Any(), gomock.Any()).Return(usecase.StatusOk, nil).Times(2)
 	h := newTestRouter(t, uc)
 
 	rec := do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration(), htmx: true})
@@ -640,9 +595,6 @@ func TestRegisterFullGame(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	assertContains(t, rec.Body.String(), "<h2>Поздравляем!</h2>")
-	if uc.gotRegistration == nil {
-		t.Error("registration wasn't sent to usecase")
-	}
 
 	// без js страница целиком: вывеска с состоянием до отправки, свет под итог включают правила :has(.outcome--ok)
 	rec = do(t, h, request{method: http.MethodPost, path: registerPath, form: validRegistration()})
@@ -654,7 +606,10 @@ func TestRegisterFullGame(t *testing.T) {
 func TestUnknownGame(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, &fakeUsecase{game: testGame()})
+	uc := mockUsecase(t)
+	uc.EXPECT().GetGame(gomock.Any(), int64(8)).Return(usecase.GameListItem{}, usecase.ErrNotFound)
+	h := newTestRouter(t, uc)
+	// «abc» не id игры: до usecase такой запрос не доходит
 	for _, path := range []string{"/games/8/register", "/games/abc/register"} {
 		rec := do(t, h, request{method: http.MethodGet, path: path})
 		if rec.Code != http.StatusNotFound {
@@ -666,7 +621,8 @@ func TestUnknownGame(t *testing.T) {
 func TestAdminRequiresLogin(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, &fakeUsecase{game: testGame()})
+	// ни гостю, ни форме новой игры usecase не нужен
+	h := newTestRouter(t, mockUsecase(t))
 
 	rec := do(t, h, request{method: http.MethodGet, path: teamsPath})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
@@ -711,9 +667,10 @@ func TestLogin(t *testing.T) {
 	t.Run("wrong password", func(t *testing.T) {
 		t.Parallel()
 
-		h := newTestRouter(t, &fakeUsecase{loginErr: usecase.ErrWrongPassword})
+		uc := mockUsecase(t)
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "nope").Return(nil, usecase.ErrWrongPassword)
 		form := loginForm("nope")
-		rec := do(t, h, request{method: http.MethodPost, path: loginPath, form: form})
+		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
@@ -723,9 +680,10 @@ func TestLogin(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		h := newTestRouter(t, &fakeUsecase{})
+		uc := mockUsecase(t)
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(testCookie("new-token"), nil)
 		form := loginForm("secret")
-		rec := do(t, h, request{method: http.MethodPost, path: loginPath, form: form})
+		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 			t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 		}
@@ -735,9 +693,10 @@ func TestLogin(t *testing.T) {
 	t.Run("server error", func(t *testing.T) {
 		t.Parallel()
 
-		h := newTestRouter(t, &fakeUsecase{loginErr: errors.New("db is down")})
+		uc := mockUsecase(t)
+		uc.EXPECT().Login(gomock.Any(), adminLogin, "secret").Return(nil, errors.New("db is down"))
 		form := loginForm("secret")
-		rec := do(t, h, request{method: http.MethodPost, path: loginPath, form: form})
+		rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: loginPath, form: form})
 		if rec.Code != http.StatusInternalServerError {
 			t.Fatalf("status = %d", rec.Code)
 		}
@@ -760,17 +719,20 @@ func TestCreateGame(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		t.Parallel()
 
-		uc := &fakeUsecase{}
+		uc := mockUsecase(t)
+		// время из формы — московское
+		uc.EXPECT().CreateGame(gomock.Any(), model.Games{
+			Name:                 "Бауманская лига",
+			Location:             defaultGameLocation,
+			StartTime:            time.Date(2026, time.November, 1, 18, 0, 0, 0, utils.LocMsk),
+			RegistrationOpenTime: time.Date(2026, time.October, 25, 12, 0, 0, 0, utils.LocMsk),
+			MainAmount:           30,
+			ReserveAmount:        5,
+		}).Return(int64(1), nil)
 		h := newTestRouter(t, uc)
 		rec := do(t, h, request{method: http.MethodPost, path: newGamePath, form: form, admin: true})
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
-		}
-
-		got := uc.gotGame
-		wantStart := time.Date(2026, time.November, 1, 18, 0, 0, 0, utils.LocMsk)
-		if got == nil || !got.StartTime.Equal(wantStart) || got.MainAmount != 30 || got.ReserveAmount != 5 {
-			t.Errorf("unexpected request: %+v", got)
 		}
 	})
 
@@ -781,37 +743,31 @@ func TestCreateGame(t *testing.T) {
 		maps.Copy(bad, form)
 		bad.Set("registration_open_time", "2026-11-02T12:00")
 
-		uc := &fakeUsecase{}
-		h := newTestRouter(t, uc)
+		// неверная игра до usecase не доходит: CreateGame мок не ждёт
+		h := newTestRouter(t, mockUsecase(t))
 		rec := do(t, h, request{method: http.MethodPost, path: newGamePath, form: bad, admin: true})
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d", rec.Code)
 		}
 		assertContains(t, rec.Body.String(), "Регистрация должна открыться до начала игры")
-		if uc.gotGame != nil {
-			t.Error("invalid game was sent to usecase")
-		}
 	})
 }
 
-// teamsUsecase - игра с тремя командами со случайными данными: основной состав 2, третья команда в резерве
-func teamsUsecase() *fakeUsecase {
-	team := func(number int64) usecase.Registration {
-		reg := testsupport.FakeRegistration(7)
-		reg.ID = number * 10
+// teamsRouter - веб-интерфейс, где у игры game команды teams
+func teamsRouter(t *testing.T, game model.Games, teams []usecase.Registration) http.Handler {
+	t.Helper()
 
-		return usecase.Registration{Registrations: reg, Number: number}
-	}
-	teams := []usecase.Registration{team(1), team(2), team(3)}
+	uc := mockUsecase(t)
+	expectTeams(uc, game, teams)
 
-	return &fakeUsecase{game: testGame(), teams: teams}
+	return newTestRouter(t, uc)
 }
 
 func TestTeamsPage(t *testing.T) {
 	t.Parallel()
 
-	uc := teamsUsecase()
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	teams := testTeams()
+	rec := do(t, teamsRouter(t, testGame(), teams), request{method: http.MethodGet, path: teamsPath, admin: true})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -822,7 +778,7 @@ func TestTeamsPage(t *testing.T) {
 		// места, заданные при создании игры: в testGame основа 2, резерв 1
 		`<dt>мест в основе</dt><dd>2</dd>`,
 		`<dt>мест в резерве</dt><dd>1</dd>`,
-		uc.teamName(2),
+		teamName(teams, 2),
 		"/admin/games/7/teams.xlsx",
 		// основной состав 2, третья команда первая в резерве: над ней линия
 		`<tr class="is-reserve reserve-start">`,
@@ -831,8 +787,8 @@ func TestTeamsPage(t *testing.T) {
 	assertNotContains(t, body, "Состав")
 	assertContains(t, body,
 		`hx-post="/admin/games/7/teams/20/delete"`,
-		`hx-confirm="Удалить команду «`+uc.teamName(1)+`» из игры?"`,
-		`aria-label="Удалить команду «`+uc.teamName(1)+`»"`,
+		`hx-confirm="Удалить команду «`+teamName(teams, 1)+`» из игры?"`,
+		`aria-label="Удалить команду «`+teamName(teams, 1)+`»"`,
 	)
 	if strings.Count(body, "is-reserve") != 1 {
 		t.Error("only the third team must be in reserve")
@@ -844,10 +800,10 @@ func TestTeamsConfirmDialog(t *testing.T) {
 
 	const gone = "Команда потеряет место в игре и останется в списке серой, без номера. Вернуть её отсюда не получится."
 
-	uc := teamsUsecase()
+	teams := testTeams()
 	// место удалённой из основы займёт первая команда резерва — третья
-	takeover := " Её место в основе займёт «" + uc.teamName(2) + "» из резерва."
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	takeover := " Её место в основе займёт «" + teamName(teams, 2) + "» из резерва."
+	rec := do(t, teamsRouter(t, testGame(), teams), request{method: http.MethodGet, path: teamsPath, admin: true})
 	body := rec.Body.String()
 	assertContains(t, body,
 		`<dialog id="confirm-dialog"`,
@@ -866,18 +822,19 @@ func TestTeamsConfirmDialog(t *testing.T) {
 func TestTeamsConfirmWithoutReserve(t *testing.T) {
 	t.Parallel()
 
-	uc := teamsUsecase()
-	uc.game.MainAmount = 3
+	game := testGame()
+	game.MainAmount = 3
 
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	rec := do(t, teamsRouter(t, game, testTeams()), request{method: http.MethodGet, path: teamsPath, admin: true})
 	assertNotContains(t, rec.Body.String(), "из резерва")
 }
 
 func TestTeamsExport(t *testing.T) {
 	t.Parallel()
 
-	uc := teamsUsecase()
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
+	teams := testTeams()
+	h := teamsRouter(t, testGame(), teams)
+	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -899,7 +856,8 @@ func TestTeamsExport(t *testing.T) {
 	if len(rows) != 4 {
 		t.Fatalf("rows = %d, want 4", len(rows))
 	}
-	if rows[1][2] != uc.teams[0].TeamName || rows[1][1] != "основа" || rows[3][1] != "резерв" {
+	// колонки «Состав» нет: команда идёт сразу за номером
+	if rows[0][1] != "Команда" || rows[1][1] != teams[0].TeamName || rows[3][1] != teams[2].TeamName {
 		t.Errorf("unexpected rows: %v", rows)
 	}
 }
@@ -907,7 +865,7 @@ func TestTeamsExport(t *testing.T) {
 func TestStaticCaching(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, &fakeUsecase{})
+	h := newTestRouter(t, mockUsecase(t))
 
 	// страница ссылается на статику с версией
 	page := do(t, h, request{method: http.MethodGet, path: loginPath}).Body.String()
@@ -994,7 +952,15 @@ const deleteRegistrationPath = "/admin/games/7/teams/20/delete"
 func TestDeleteRegistration(t *testing.T) {
 	t.Parallel()
 
-	uc := teamsUsecase()
+	game, teams := testGame(), testTeams()
+	uc := mockUsecase(t)
+	expectGame(uc, game, "")
+	// обновлённый список запрашивается уже после удаления
+	gomock.InOrder(
+		uc.EXPECT().DeleteRegistration(gomock.Any(), game.ID, int64(20)).Return(nil),
+		uc.EXPECT().ListRegistrations(gomock.Any(), game.ID).Return(withSecondDeleted(teams), nil),
+	)
+
 	req := request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true}
 	rec := do(t, newTestRouter(t, uc), req)
 	if rec.Code != http.StatusOK {
@@ -1006,38 +972,23 @@ func TestDeleteRegistration(t *testing.T) {
 	// Места из настроек игры входят в него и после удаления не пропадают
 	assertContains(t, body,
 		"Команд: 2", `<dt>мест в основе</dt><dd>2</dd>`, `<dt>мест в резерве</dt><dd>1</dd>`,
-		uc.teamName(0), uc.teamName(1), uc.teamName(2),
+		teamName(teams, 0), teamName(teams, 1), teamName(teams, 2),
 	)
 	assertNotContains(t, body, "<!doctype html>", "<h1>", "confirm-dialog")
-	if len(uc.gotDeleted) != 1 || uc.gotDeleted[0] != 20 {
-		t.Errorf("deleted = %v, want [20]", uc.gotDeleted)
-	}
-}
-
-func deletedRegistrationUsecase(t *testing.T) *fakeUsecase {
-	t.Helper()
-
-	uc := teamsUsecase()
-	err := uc.DeleteRegistration(t.Context(), 7, 20)
-	if err != nil {
-		t.Fatalf("can't delete team: %v", err)
-	}
-
-	return uc
 }
 
 func TestTeamsPageDeleted(t *testing.T) {
 	t.Parallel()
 
-	uc := deletedRegistrationUsecase(t)
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: teamsPath, admin: true})
+	teams := withSecondDeleted(testTeams())
+	rec := do(t, teamsRouter(t, testGame(), teams), request{method: http.MethodGet, path: teamsPath, admin: true})
 	body := rec.Body.String()
 	// вторая команда удалена: строка на месте, серая, без номера и без корзины; третья поднялась в основу
 	assertContains(t, body,
 		"Команд: 2",
 		`<tr class="is-deleted" title="Команда удалена">`,
 		`<td><span class="visually-hidden">Удалена</span></td>`,
-		"<td>"+uc.teamName(1)+"</td>",
+		"<td>"+teamName(teams, 1)+"</td>",
 	)
 	assertNotContains(t, body, "is-reserve", `/teams/20/delete"`)
 	if got := strings.Count(body, "hx-post="); got != 2 {
@@ -1048,8 +999,9 @@ func TestTeamsPageDeleted(t *testing.T) {
 func TestTeamsExportSkipsDeleted(t *testing.T) {
 	t.Parallel()
 
-	uc := deletedRegistrationUsecase(t)
-	rec := do(t, newTestRouter(t, uc), request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
+	teams := withSecondDeleted(testTeams())
+	h := teamsRouter(t, testGame(), teams)
+	rec := do(t, h, request{method: http.MethodGet, path: "/admin/games/7/teams.xlsx", admin: true})
 
 	f, err := excelize.OpenReader(rec.Body)
 	if err != nil {
@@ -1061,7 +1013,7 @@ func TestTeamsExportSkipsDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't read rows: %v", err)
 	}
-	if len(rows) != 3 || rows[1][2] != uc.teams[0].TeamName || rows[2][0] != "2" || rows[2][2] != uc.teams[2].TeamName {
+	if len(rows) != 3 || rows[1][1] != teams[0].TeamName || rows[2][0] != "2" || rows[2][1] != teams[2].TeamName {
 		t.Errorf("export must contain only active teams: %v", rows)
 	}
 }
@@ -1069,8 +1021,10 @@ func TestTeamsExportSkipsDeleted(t *testing.T) {
 func TestDeleteRegistrationNoJS(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, teamsUsecase())
-	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, admin: true})
+	uc := mockUsecase(t)
+	// без htmx после удаления только редирект на страницу участников, список здесь не нужен
+	uc.EXPECT().DeleteRegistration(gomock.Any(), int64(7), int64(20)).Return(nil)
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: deleteRegistrationPath, admin: true})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != teamsPath {
 		t.Errorf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -1079,11 +1033,14 @@ func TestDeleteRegistrationNoJS(t *testing.T) {
 func TestDeleteRegistrationTwice(t *testing.T) {
 	t.Parallel()
 
-	h := newTestRouter(t, teamsUsecase())
-	do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true})
+	uc := mockUsecase(t)
+	// второе нажатие: команду уже удалило первое, и usecase отвечает ErrNotFound.
+	// Это не ошибка: показываем актуальный список
+	uc.EXPECT().DeleteRegistration(gomock.Any(), int64(7), int64(20)).Return(usecase.ErrNotFound)
+	expectTeams(uc, testGame(), withSecondDeleted(testTeams()))
 
-	// второе нажатие не ошибка: показываем актуальный список
-	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true})
+	req := request{method: http.MethodPost, path: deleteRegistrationPath, htmx: true, admin: true}
+	rec := do(t, newTestRouter(t, uc), req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -1093,8 +1050,8 @@ func TestDeleteRegistrationTwice(t *testing.T) {
 func TestDeleteRegistrationRejected(t *testing.T) {
 	t.Parallel()
 
-	uc := teamsUsecase()
-	h := newTestRouter(t, uc)
+	// ни гость, ни запрос с кривым id до удаления не доходят: DeleteRegistration мок не ждёт
+	h := newTestRouter(t, mockUsecase(t))
 
 	rec := do(t, h, request{method: http.MethodPost, path: deleteRegistrationPath})
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
@@ -1104,10 +1061,6 @@ func TestDeleteRegistrationRejected(t *testing.T) {
 	rec = do(t, h, request{method: http.MethodPost, path: "/admin/games/7/teams/abc/delete", admin: true})
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("bad id: status = %d", rec.Code)
-	}
-
-	if len(uc.gotDeleted) != 0 {
-		t.Errorf("nothing must be deleted, got %v", uc.gotDeleted)
 	}
 }
 
@@ -1163,7 +1116,7 @@ func TestPageTitles(t *testing.T) {
 	}
 
 	// заголовок попадает во вкладку браузера
-	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
+	rec := do(t, newTestRouter(t, mockUsecase(t)), request{method: http.MethodGet, path: loginPath})
 	assertContains(t, rec.Body.String(), "<title>Вход — КвизON</title>")
 }
 
@@ -1171,7 +1124,7 @@ func TestLoginSign(t *testing.T) {
 	t.Parallel()
 
 	// вход — погашенная вывеска с заголовком и подписью, форма под ней
-	rec := do(t, newTestRouter(t, &fakeUsecase{}), request{method: http.MethodGet, path: loginPath})
+	rec := do(t, newTestRouter(t, mockUsecase(t)), request{method: http.MethodGet, path: loginPath})
 	body := rec.Body.String()
 	assertContains(t, body, `<hgroup class="sheet__sign marquee">`, "<h1>Вход</h1>", "<p>Для организаторов игр</p>")
 	if strings.Index(body, "sheet__sign") > strings.Index(body, `<form method="post" action="/login">`) {

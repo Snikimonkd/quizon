@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"quizon/internal/app/repository"
 	"quizon/internal/app/usecase"
@@ -13,14 +17,18 @@ import (
 )
 
 func main() {
-	logger.Infof("runtime start")
+	debug := config.Debug()
+	logger.Setup(debug)
+	slog.Info("runtime start", "debug", debug)
+
 	ctx := context.Background()
 
 	db, err := config.ConnectToPostgres(ctx)
 	if err != nil {
-		logger.Fatalf("can't start postgres: %v", err)
+		logger.Fatal("can't start postgres", err)
 	}
-	logger.Infof("db ready")
+	defer db.Close()
+	slog.Info("db ready")
 
 	cookieCache := cache.New[*http.Cookie]()
 
@@ -29,14 +37,19 @@ func main() {
 
 	webUI, err := web.New(usecase, cookieCache)
 	if err != nil {
-		logger.Fatalf("can't init web ui: %v", err)
+		logger.Fatal("can't init web ui", err)
 	}
 
-	server := config.NewServer(webUI.Routes)
+	server := config.NewServer(webUI.Routes, debug)
 
-	logger.Infof("starting server on %v", server.Addr)
-	err = server.ListenAndServe()
+	// SIGTERM присылает docker stop, SIGINT — Ctrl+C в make run. По ним сервер дорабатывает начатые запросы и выходит
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	slog.Info("starting server", "addr", server.Addr)
+	err = config.Serve(ctx, server)
 	if err != nil {
-		logger.Fatalf("can't start server: %v", err)
+		logger.Fatal("server failed", err)
 	}
+	slog.Info("server stopped")
 }

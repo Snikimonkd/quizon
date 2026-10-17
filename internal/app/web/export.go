@@ -6,16 +6,17 @@ import (
 	"mime"
 	"net/http"
 
-	"quizon/internal/utils"
-
 	"github.com/samber/lo"
 	"github.com/xuri/excelize/v2"
+
+	"quizon/internal/app/usecase"
+	"quizon/internal/utils"
 )
 
 const xlsxContentType string = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 var teamsHeader = []any{
-	"№", "Состав", "Команда", "Telegram", "ID команды", "Капитан", "Группа", "Телефон", "Участников",
+	"№", "Команда", "Telegram", "ID команды", "Капитан", "Группа", "Телефон", "Участников",
 	"Время регистрации",
 }
 
@@ -27,7 +28,7 @@ func (wb *Web) exportTeams(w http.ResponseWriter, r *http.Request) {
 
 	buf, err := teamsXLSX(view)
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	}
 
@@ -36,15 +37,6 @@ func (wb *Web) exportTeams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	w.WriteHeader(http.StatusOK)
 	_, _ = buf.WriteTo(w)
-}
-
-// squad - основной состав или резерв по порядковому номеру регистрации
-func squad(number, mainAmount int64) string {
-	if number > mainAmount {
-		return "резерв"
-	}
-
-	return "основа"
 }
 
 func teamsXLSX(view teamsView) (*bytes.Buffer, error) {
@@ -62,11 +54,13 @@ func teamsXLSX(view teamsView) (*bytes.Buffer, error) {
 		return nil, fmt.Errorf("can't write header: %w", err)
 	}
 
+	activeTeams := lo.Filter(view.Teams, func(r usecase.Registration, _ int) bool {
+		return r.DeletedAt == nil
+	})
 	// в выгрузку идут только оставшиеся в игре команды
-	for i, t := range view.Active() {
+	for i, t := range activeTeams {
 		row := []any{
 			t.Number,
-			squad(t.Number, view.MainAmount),
 			t.TeamName,
 			t.Telegram,
 			lo.FromPtr(t.TeamID),
@@ -83,7 +77,7 @@ func teamsXLSX(view teamsView) (*bytes.Buffer, error) {
 		}
 	}
 
-	err = f.SetColWidth(sheet, "A", "J", 18)
+	err = f.SetColWidth(sheet, "A", "I", 18)
 	if err != nil {
 		return nil, fmt.Errorf("can't set column width: %w", err)
 	}

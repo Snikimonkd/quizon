@@ -13,7 +13,7 @@ func init() {
 	var err error
 	LocMsk, err = time.LoadLocation("Europe/Moscow")
 	if err != nil {
-		logger.Fatalf("can't load Europe/Moscow location: %v", err)
+		logger.Fatal("can't load Europe/Moscow location", err)
 	}
 }
 

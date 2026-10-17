@@ -9,7 +9,7 @@ jobs:
   tests:
     services:
       postgres:
-        image: postgres
+        image: postgres:17
         ports:
           - 5432:5432
         env:

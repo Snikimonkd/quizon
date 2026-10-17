@@ -25,6 +25,7 @@ jobs:
     env:
       SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
       IMAGE: snikimonk/quizon:${{ inputs.tag }}
+      DOMAIN: ${{ vars.DOMAIN }}
     steps:
       - name: set up ssh
         run: |
@@ -36,7 +37,6 @@ jobs:
       - name: deploy
         env:
           PG_DSN: ${{ secrets.PG_DSN }}
-          DOMAIN: ${{ vars.DOMAIN }}
         run: |
           {
             printf 'export IMAGE=%q PG_DSN=%q DOMAIN=%q\n' "$IMAGE" "$PG_DSN" "$DOMAIN"
@@ -44,6 +44,8 @@ jobs:
           set -euo pipefail
 
           docker pull "$IMAGE"
+          # stop шлёт SIGTERM и даёт приложению доработать начатые запросы, rm -f убил бы его сразу
+          docker stop quizon 2>/dev/null || true
           docker rm -f quizon 2>/dev/null || true
           docker run -d \
             --name quizon \
@@ -55,3 +57,14 @@ jobs:
           docker image prune -f
           SCRIPT
           } | ssh "$SSH_TARGET" bash -s
+
+      # новый контейнер должен ответить через Caddy, иначе деплой красный
+      - name: check the site
+        run: >-
+          curl -fsS -o /dev/null --max-time 5
+          --retry 15 --retry-delay 2 --retry-all-errors
+          "https://$DOMAIN/"
+
+      - name: container logs
+        if: failure()
+        run: ssh "$SSH_TARGET" docker logs --tail 100 quizon

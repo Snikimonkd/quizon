@@ -11,3 +11,6 @@ pgdata
 *.out.tmp
 *.out
 cover.html
+
+# локальные настройки и worktree Claude Code
+.claude/

@@ -183,7 +183,7 @@ func (wb *Web) register(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, usecase.ErrNotOpenedYet):
 		view.Outcome = outcomeWaiting
 	case err != nil:
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	default:
 		view.Outcome = outcome(status)
@@ -208,7 +208,7 @@ func closedOutcome(game gameView) outcome {
 
 func (wb *Web) renderRegistration(w http.ResponseWriter, r *http.Request, status int, view registerView) {
 	if isHTMX(r) {
-		wb.renderBlock(w, status, pageRegister, "registration", view)
+		wb.renderBlock(w, r, status, pageRegister, "registration", view)
 		return
 	}
 

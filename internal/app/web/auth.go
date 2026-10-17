@@ -71,7 +71,7 @@ func (wb *Web) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	}
 

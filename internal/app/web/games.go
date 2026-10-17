@@ -71,7 +71,7 @@ type homeView struct {
 func (wb *Web) home(w http.ResponseWriter, r *http.Request) {
 	items, err := wb.usecase.ListGames(r.Context(), 1, gamesPerPage)
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (wb *Web) loadGame(w http.ResponseWriter, r *http.Request) (usecase.GameLis
 		return usecase.GameListItem{}, false
 	}
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return usecase.GameListItem{}, false
 	}
 

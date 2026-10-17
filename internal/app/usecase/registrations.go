@@ -19,11 +19,6 @@ type Registration struct {
 	Number int64
 }
 
-// Deleted - команду убрали из игры
-func (r Registration) Deleted() bool {
-	return r.DeletedAt != nil
-}
-
 // ListRegistrations - все регистрации на игру в порядке подачи, включая удалённые; время по Москве
 func (u usecase) ListRegistrations(ctx context.Context, gameID int64) ([]Registration, error) {
 	res, err := u.repository.ListRegistrations(ctx, gameID)
@@ -31,22 +26,17 @@ func (u usecase) ListRegistrations(ctx context.Context, gameID int64) ([]Registr
 		return nil, err
 	}
 
-	return numberRegistrations(res), nil
-}
-
-// numberRegistrations - нумерует команды по порядку подачи, удалённые пропускает
-func numberRegistrations(in []model.Registrations) []Registration {
-	ret := make([]Registration, 0, len(in))
-	var number int64
-	for _, v := range in {
+	ret := make([]Registration, 0, len(res))
+	number := int64(1)
+	for _, v := range res {
 		v.CreatedAt = v.CreatedAt.In(utils.LocMsk)
 		reg := Registration{Registrations: v}
-		if !reg.Deleted() {
-			number++
+		if reg.DeletedAt == nil {
 			reg.Number = number
+			number++
 		}
 		ret = append(ret, reg)
 	}
 
-	return ret
+	return ret, nil
 }

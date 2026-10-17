@@ -3,10 +3,9 @@ package config
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
-
-	"quizon/internal/pkg/logger"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -32,13 +31,13 @@ func ConnectToPostgresByDSN(ctx context.Context, dsn string) (*pgxpool.Pool, err
 		return nil, fmt.Errorf("can't connect to db: %w", err)
 	}
 
-	for range retries {
+	for attempt := range retries {
 		err := db.Ping(ctx)
 		if err == nil {
 			return db, nil
 		}
 
-		logger.Errorf("can't ping db: %v", err)
+		slog.WarnContext(ctx, "can't ping db", "err", err, "attempt", attempt+1, "retries", retries)
 		time.Sleep(retryTimeout)
 	}
 

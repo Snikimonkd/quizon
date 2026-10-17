@@ -1,40 +1,22 @@
 package usecase
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
 
-	"quizon/internal/generated/postgres/public/model"
-
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/mock/gomock"
+
+	"quizon/internal/app/usecase/mocks"
+	"quizon/internal/generated/postgres/public/model"
 )
 
-// gameRepository - одна игра и число её регистраций; остальные методы репозитория GetGame не нужны
-type gameRepository struct {
-	Repository
+// mockRepository - мок репозитория без ожиданий: вызов, которого тест не задал, роняет тест
+func mockRepository(t *testing.T) *mocks.MockRepository {
+	t.Helper()
 
-	game       model.Games
-	registered int64
-	countErr   error
-}
-
-func (r gameRepository) GetGame(_ context.Context, gameID int64) (model.Games, error) {
-	if gameID != r.game.ID {
-		return model.Games{}, fmt.Errorf("can't get game: %w", pgx.ErrNoRows)
-	}
-
-	return r.game, nil
-}
-
-func (r gameRepository) RegistrationsAmount(_ context.Context, gameID int64) (int64, error) {
-	// как в базе: у другой игры регистраций нет
-	if gameID != r.game.ID {
-		return 0, nil
-	}
-
-	return r.registered, r.countErr
+	return mocks.NewMockRepository(gomock.NewController(t))
 }
 
 func TestGetGame(t *testing.T) {
@@ -51,22 +33,33 @@ func TestGetGame(t *testing.T) {
 		{registered: 3, want: StatusClosed},
 	}
 	for _, tt := range tests {
-		u := usecase{repository: gameRepository{game: game, registered: tt.registered}}
+		repo := mockRepository(t)
+		repo.EXPECT().GetGame(gomock.Any(), game.ID).Return(game, nil)
+		repo.EXPECT().RegistrationsAmount(gomock.Any(), game.ID).Return(tt.registered, nil)
+
+		u := usecase{repository: repo}
 		got, err := u.GetGame(t.Context(), game.ID)
 		if err != nil || got.Games != game || got.Status != tt.want {
 			t.Errorf("registered %d: GetGame = %+v, %v; want status %q", tt.registered, got, err, tt.want)
 		}
 	}
 
-	u := usecase{repository: gameRepository{game: game}}
-	_, err := u.GetGame(t.Context(), game.ID+1)
+	// репозиторий оборачивает pgx.ErrNoRows, наружу уходит ErrNotFound. Регистрации у такой игры не считаются
+	repo := mockRepository(t)
+	notFound := fmt.Errorf("can't get game: %w", pgx.ErrNoRows)
+	repo.EXPECT().GetGame(gomock.Any(), int64(8)).Return(model.Games{}, notFound)
+	u := usecase{repository: repo}
+	_, err := u.GetGame(t.Context(), 8)
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown game: err = %v, want ErrNotFound", err)
 	}
 
 	// без числа регистраций статус не узнать: ошибка, а не открытая регистрация
 	dbErr := errors.New("db is down")
-	u = usecase{repository: gameRepository{game: game, countErr: dbErr}}
+	repo = mockRepository(t)
+	repo.EXPECT().GetGame(gomock.Any(), game.ID).Return(game, nil)
+	repo.EXPECT().RegistrationsAmount(gomock.Any(), game.ID).Return(int64(0), dbErr)
+	u = usecase{repository: repo}
 	_, err = u.GetGame(t.Context(), game.ID)
 	if !errors.Is(err, dbErr) {
 		t.Errorf("count error: err = %v, want %v", err, dbErr)

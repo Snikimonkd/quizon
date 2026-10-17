@@ -6,6 +6,8 @@ import (
 	"github.com/benbjohnson/clock"
 )
 
+//go:generate go tool mockgen -typed -destination=mocks/repository_mock.go -package=mocks . Repository
+
 // Repository - интерфейс инкапсулирующий в себе все репозитории
 type Repository interface {
 	ListGamesRepository
@@ -14,13 +16,11 @@ type Repository interface {
 
 	RegisterRepository
 	DeleteRegistrationRepository
-	// RegisterAvailableRepository
 	CreateGameRepository
 	LoginRepository
 }
 
 type usecase struct {
-	//	loginRepository             LoginRepository
 	repository Repository
 	clock      clock.Clock
 

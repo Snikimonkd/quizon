@@ -1,48 +1,25 @@
+// Package logger - структурные логи приложения на log/slog
 package logger
 
 import (
-	"log"
+	"log/slog"
+	"os"
 )
 
-const (
-	reset  string = "\033[0m"
-	red    string = "\033[31m"
-	green  string = "\033[32m"
-	yellow string = "\033[33m"
-)
-
-func Infof(format string, v ...any) {
-	if len(v) == 0 {
-		log.Print(green + "[INFO] " + reset + format)
-		return
+// Setup - логгер по умолчанию для всего приложения, в том числе для стандартного log.
+// В продакшене JSON по записи на строку с уровнем info: такие логи фильтруются по полям.
+// При отладке (debug) — читаемый текст с уровнем debug
+func Setup(debug bool) {
+	var handler slog.Handler = slog.NewJSONHandler(os.Stdout, nil)
+	if debug {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
 	}
 
-	log.Printf(green+"[INFO] "+reset+format, v)
+	slog.SetDefault(slog.New(handler))
 }
 
-func Warnf(format string, v ...any) {
-	if len(v) == 0 {
-		log.Print(yellow + "[WARN] " + reset + format)
-		return
-	}
-
-	log.Printf(yellow+"[WARN] "+reset+format, v)
-}
-
-func Errorf(format string, v ...any) {
-	if len(v) == 0 {
-		log.Print(red + "[ERROR] " + reset + format)
-		return
-	}
-
-	log.Printf(red+"[ERROR] "+reset+format, v)
-}
-
-func Fatalf(format string, v ...any) {
-	if len(v) == 0 {
-		log.Fatal(red + "[FATAL] " + reset + format)
-		return
-	}
-
-	log.Fatalf(red+"[FATAL] "+reset+format, v)
+// Fatal - ошибка, после которой работать нельзя (обычно при запуске): пишет её и завершает процесс
+func Fatal(msg string, err error) {
+	slog.Error(msg, "err", err)
+	os.Exit(1)
 }

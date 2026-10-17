@@ -31,12 +31,12 @@
      Удалённые команды остаются в таблице на своём месте, но серые, без номера и без кнопки удаления */}}
 {{define "teams"}}
 <div class="teams-bar">
-  <p>Команд: {{len .Active}}</p>
+  <p>Команд: {{.ActiveCount}}</p>
   <dl class="teams-places">
     <div><dt>мест в основе</dt><dd>{{.MainAmount}}</dd></div>
     <div><dt>мест в резерве</dt><dd>{{.ReserveAmount}}</dd></div>
   </dl>
-  {{if .Active}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
+  {{if .ActiveCount}}<a href="/admin/games/{{.Game.ID}}/teams.xlsx" role="button" class="outline" download>Скачать .xlsx</a>{{end}}
 </div>
 {{if .Teams}}
 <div class="overflow-auto">
@@ -59,11 +59,11 @@
       {{range .Teams}}
       {{/* первая команда резерва отделена от основы линией сверху */}}
       <tr
-        {{- if .Deleted}} class="is-deleted" title="Команда удалена"
+        {{- if .DeletedAt}} class="is-deleted" title="Команда удалена"
         {{- else if eq .Number $.ReserveStart}} class="is-reserve reserve-start"
         {{- else if gt .Number $.MainAmount}} class="is-reserve"{{end}}>
         <td>
-          {{- if .Deleted}}<span class="visually-hidden">Удалена</span>
+          {{- if .DeletedAt}}<span class="visually-hidden">Удалена</span>
           {{- else}}{{if eq .Number $.ReserveStart}}<span class="visually-hidden">Дальше резерв. </span>{{end}}{{.Number}}{{end -}}
         </td>
         <td>{{.TeamName}}</td>
@@ -75,7 +75,7 @@
         <td>{{.PlayersAmount}}</td>
         <td class="nowrap">{{fullTime .CreatedAt}}</td>
         <td>
-          {{if not .Deleted}}
+          {{if not .DeletedAt}}
           <form method="post" action="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" class="row-action"
             hx-post="/admin/games/{{$.Game.ID}}/teams/{{.ID}}/delete" hx-target="#teams"
             hx-confirm="Удалить команду «{{.TeamName}}» из игры?" hx-disable="find button"

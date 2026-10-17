@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
@@ -13,7 +14,6 @@ import (
 
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/generated/postgres/public/table"
-	"quizon/internal/pkg/logger"
 )
 
 var ErrNotFound error = errors.New("not found")
@@ -317,6 +317,6 @@ func (r repository) rollbackUnlessCommited(ctx context.Context, tx pgx.Tx) {
 		return
 	}
 	if err != nil {
-		logger.Errorf("can't rollback tx in defer: %v", err)
+		slog.ErrorContext(ctx, "can't rollback tx", "err", err)
 	}
 }

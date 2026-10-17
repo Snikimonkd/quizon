@@ -7,23 +7,26 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"math"
 	"net/http"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/samber/lo"
+
 	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
-	"quizon/internal/pkg/logger"
 	"quizon/internal/utils"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/samber/lo"
 )
 
 //go:embed templates static
 var files embed.FS
+
+//go:generate go tool mockgen -typed -destination=mocks/web_mock.go -package=mocks . Usecase,CookieCache
 
 // Usecase - бизнес-логика, которую использует веб-интерфейс
 type Usecase interface {
@@ -108,14 +111,14 @@ func parsePages(fsys fs.FS, assets assets) (map[page]*template.Template, error) 
 
 	pages := make(map[page]*template.Template, len(allPages))
 	for _, p := range allPages {
-		tmpl, err := base.Clone()
-		if err != nil {
-			return nil, fmt.Errorf("can't clone base templates: %w", err)
+		tmpl, cerr := base.Clone()
+		if cerr != nil {
+			return nil, fmt.Errorf("can't clone base templates: %w", cerr)
 		}
 
-		tmpl, err = tmpl.ParseFS(fsys, p.templatePath())
-		if err != nil {
-			return nil, fmt.Errorf("can't parse page %s: %w", p, err)
+		tmpl, cerr = tmpl.ParseFS(fsys, p.templatePath())
+		if cerr != nil {
+			return nil, fmt.Errorf("can't parse page %s: %w", p, cerr)
 		}
 
 		pages[p] = tmpl
@@ -195,7 +198,13 @@ func funcs(assets assets) template.FuncMap {
 		// сб, 2 ноября, 18:00
 		"ruDateTime": func(t time.Time) string {
 			t = t.In(utils.LocMsk)
-			return fmt.Sprintf("%s, %d %s, %s", shortWeekdays[t.Weekday()], t.Day(), months[t.Month()-1], t.Format("15:04"))
+			return fmt.Sprintf(
+				"%s, %d %s, %s",
+				shortWeekdays[t.Weekday()],
+				t.Day(),
+				months[t.Month()-1],
+				t.Format("15:04"),
+			)
 		},
 		"hhmm": func(t time.Time) string {
 			return t.In(utils.LocMsk).Format("15:04")
@@ -228,18 +237,18 @@ func (wb *Web) renderPage(w http.ResponseWriter, r *http.Request, status int, p 
 		Page:  view,
 	}
 
-	wb.execute(w, status, p, "layout", data)
+	wb.execute(w, r, status, p, "layout", data)
 }
 
 // renderBlock - рендерит один блок страницы, для ответов на htmx-запросы
-func (wb *Web) renderBlock(w http.ResponseWriter, status int, p page, block string, data any) {
-	wb.execute(w, status, p, block, data)
+func (wb *Web) renderBlock(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
+	wb.execute(w, r, status, p, block, data)
 }
 
-func (wb *Web) execute(w http.ResponseWriter, status int, p page, block string, data any) {
+func (wb *Web) execute(w http.ResponseWriter, r *http.Request, status int, p page, block string, data any) {
 	tmpl, ok := wb.pages[p]
 	if !ok {
-		logger.Errorf("unknown page template: %s", p)
+		slog.ErrorContext(r.Context(), "unknown page template", "page", string(p), "request_id", requestID(r))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -247,7 +256,8 @@ func (wb *Web) execute(w http.ResponseWriter, status int, p page, block string, 
 	var buf bytes.Buffer
 	err := tmpl.ExecuteTemplate(&buf, block, data)
 	if err != nil {
-		logger.Errorf("can't render %s/%s: %v", p, block, err)
+		slog.ErrorContext(r.Context(), "can't render template",
+			"page", string(p), "block", block, "err", err, "request_id", requestID(r))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -257,8 +267,13 @@ func (wb *Web) execute(w http.ResponseWriter, status int, p page, block string, 
 	_, _ = buf.WriteTo(w)
 }
 
-func (wb *Web) serverError(w http.ResponseWriter, err error) {
-	logger.Errorf("web: %v", err)
+// requestID - id запроса из журнала запросов: по нему ошибка находится рядом со строкой самого запроса
+func requestID(r *http.Request) string {
+	return middleware.GetReqID(r.Context())
+}
+
+func (wb *Web) serverError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "request failed", "err", err, "request_id", requestID(r))
 	http.Error(w, "Что-то пошло не так. Попробуйте ещё раз через минуту.", http.StatusInternalServerError)
 }
 

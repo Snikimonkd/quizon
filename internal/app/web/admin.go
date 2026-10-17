@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"quizon/internal/app/usecase"
-	"quizon/internal/generated/postgres/public/model"
-	"quizon/internal/utils"
-
 	"github.com/go-chi/chi/v5"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/samber/lo"
+
+	"quizon/internal/app/usecase"
+	"quizon/internal/generated/postgres/public/model"
+	"quizon/internal/utils"
 )
 
 // datetimeLocal - формат значения <input type="datetime-local">
@@ -173,7 +173,7 @@ func (wb *Web) createGame(w http.ResponseWriter, r *http.Request) {
 
 	_, err := wb.usecase.CreateGame(r.Context(), form.game())
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	}
 
@@ -184,6 +184,8 @@ type teamsView struct {
 	Game gameView
 	// Teams - все регистрации в порядке подачи, удалённые тоже: в таблице они серые и без номера
 	Teams []usecase.Registration
+	// ActiveCount - сколько команд осталось в игре, без удалённых
+	ActiveCount int
 	// MainAmount - команды с номером больше этого попали в резерв
 	MainAmount int64
 	// ReserveAmount - мест в резерве, как задали при создании игры
@@ -193,11 +195,6 @@ type teamsView struct {
 // ReserveStart - номер первой команды в резерве
 func (v teamsView) ReserveStart() int64 {
 	return v.MainAmount + 1
-}
-
-// Active - команды, которые остались в игре
-func (v teamsView) Active() []usecase.Registration {
-	return lo.Reject(v.Teams, func(t usecase.Registration, _ int) bool { return t.Deleted() })
 }
 
 // FirstReserve - первая команда резерва: она займёт место команды, удалённой из основы. Пусто, если резерва нет
@@ -215,13 +212,14 @@ func (wb *Web) listTeams(w http.ResponseWriter, r *http.Request) (teamsView, boo
 
 	teams, err := wb.usecase.ListRegistrations(r.Context(), game.ID)
 	if err != nil {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return teamsView{}, false
 	}
 
 	return teamsView{
 		Game:          newGameView(game, wb.now()),
 		Teams:         teams,
+		ActiveCount:   lo.CountBy(teams, func(t usecase.Registration) bool { return t.DeletedAt == nil }),
 		MainAmount:    game.MainAmount,
 		ReserveAmount: game.ReserveAmount,
 	}, true
@@ -253,7 +251,7 @@ func (wb *Web) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	// ErrNotFound - команду уже удалили, например двойным нажатием: просто показываем актуальный список
 	err = wb.usecase.DeleteRegistration(r.Context(), gameID, registrationID)
 	if err != nil && !errors.Is(err, usecase.ErrNotFound) {
-		wb.serverError(w, err)
+		wb.serverError(w, r, err)
 		return
 	}
 
@@ -267,5 +265,5 @@ func (wb *Web) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.renderBlock(w, http.StatusOK, pageTeams, "teams", view)
+	wb.renderBlock(w, r, http.StatusOK, pageTeams, "teams", view)
 }
