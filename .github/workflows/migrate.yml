@@ -14,16 +14,20 @@ jobs:
     env:
       SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
       GOOSE_VERSION: v3.29.0
+      # sha256 файла goose_linux_x86_64 из релиза GOOSE_VERSION, меняется вместе с версией
+      GOOSE_SHA256: cc56e2f75532a4dd52f5ef2d31db0121e91079a9c2617bc0ad4e04e2d41c228b
     steps:
       - uses: actions/checkout@v7
 
-      - name: set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
+      # готовый бинарник из релиза goose: секунды вместо установки Go и сборки.
+      # Хеш сверяется с зашитым выше, подменённый файл не запустится
       - name: install goose
-        run: go install github.com/pressly/goose/v3/cmd/goose@$GOOSE_VERSION
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/goose" \
+            "https://github.com/pressly/goose/releases/download/$GOOSE_VERSION/goose_linux_x86_64"
+          echo "$GOOSE_SHA256  $RUNNER_TEMP/goose" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/goose"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
       - name: set up ssh
         run: |
