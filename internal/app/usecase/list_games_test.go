@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -39,5 +40,15 @@ func TestListGames(t *testing.T) {
 		if item.Status != want[i] {
 			t.Errorf("game %d: status = %q, want %q", item.ID, item.Status, want[i])
 		}
+	}
+
+	// ошибку репозитория отдаёт как есть
+	dbErr := errors.New("db is down")
+	repo = mockRepository(t)
+	repo.EXPECT().ListGames(gomock.Any(), int64(1), int64(100)).Return(nil, dbErr)
+	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
+	_, err = u.ListGames(t.Context(), 1, 100)
+	if !errors.Is(err, dbErr) {
+		t.Errorf("repository error: err = %v, want %v", err, dbErr)
 	}
 }

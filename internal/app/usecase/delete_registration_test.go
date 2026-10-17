@@ -36,4 +36,15 @@ func TestDeleteRegistration(t *testing.T) {
 	if !errors.Is(err, usecase.ErrNotFound) {
 		t.Errorf("already deleted: err = %v, want ErrNotFound", err)
 	}
+
+	// без блокировки не удаляем: DeleteRegistration мок не ждёт
+	dbErr := errors.New("db is down")
+	repo = mockRepository(t)
+	expectTx(repo)
+	repo.EXPECT().LockGame(gomock.Any(), gomock.Any(), int64(7)).Return(dbErr)
+	u = usecase.NewUsecase(repo, nil, mockClock(testNow))
+	err = u.DeleteRegistration(t.Context(), 7, 20)
+	if !errors.Is(err, dbErr) {
+		t.Errorf("lock failed: err = %v, want %v", err, dbErr)
+	}
 }
