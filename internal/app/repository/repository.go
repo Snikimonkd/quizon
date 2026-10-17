@@ -12,11 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/lo"
 
+	"quizon/internal/app/usecase"
 	"quizon/internal/generated/postgres/public/model"
 	"quizon/internal/generated/postgres/public/table"
 )
-
-var ErrNotFound error = errors.New("not found")
 
 type repository struct {
 	db *pgxpool.Pool
@@ -28,6 +27,7 @@ func NewRepository(db *pgxpool.Pool) repository {
 	}
 }
 
+// Transactional - выполняет fn в одной транзакции: коммит, если fn вернула nil, иначе откат
 func (r repository) Transactional(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -59,7 +59,7 @@ func (r repository) GetPassword(ctx context.Context, login string) (string, erro
 	query, args := stmt.Sql()
 	err := r.db.QueryRow(ctx, query, args...).Scan(&password)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrNotFound
+		return "", usecase.ErrNotFound
 	}
 	if err != nil {
 		return "", fmt.Errorf("can't get password: %w", err)
@@ -86,6 +86,7 @@ func (r repository) RegistrationsAmount(ctx context.Context, gameID int64) (int6
 	return lo.FromPtr(res), nil
 }
 
+// GetGame - игра по id. usecase.ErrNotFound, если такой нет
 func (r repository) GetGame(ctx context.Context, gameID int64) (model.Games, error) {
 	stmt := table.Games.SELECT(
 		table.Games.AllColumns,
@@ -105,8 +106,11 @@ func (r repository) GetGame(ctx context.Context, gameID int64) (model.Games, err
 		&res.ReserveAmount,
 		&res.RegistrationOpenTime,
 	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Games{}, usecase.ErrNotFound
+	}
 	if err != nil {
-		return model.Games{}, fmt.Errorf("can't get registration restrictions: %w", err)
+		return model.Games{}, fmt.Errorf("can't get game: %w", err)
 	}
 
 	return res, nil
@@ -160,6 +164,7 @@ func (r repository) ListRegistrations(ctx context.Context, gameID int64) ([]mode
 	return res, nil
 }
 
+// LockGame - блокирует игру до конца транзакции tx: кто заблокировал игру позже, ждёт её конца
 func (r repository) LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error {
 	query := `select pg_advisory_xact_lock($1);`
 	_, err := tx.Exec(ctx, query, gameID)
@@ -170,30 +175,45 @@ func (r repository) LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error
 	return nil
 }
 
-func (r repository) GetRegistrationsAmount(
+// GetGameWithRegistrations - игра и число оставшихся в ней команд в транзакции tx.
+// usecase.ErrNotFound, если игры нет
+func (r repository) GetGameWithRegistrations(
 	ctx context.Context,
 	tx pgx.Tx,
 	gameID int64,
-) (int64, int64, time.Time, int64, error) {
+) (usecase.GameWithRegistrations, error) {
 	query := `
-    SELECT g.main_amount, g.reserve_amount, g.registration_open_time, r.cnt
-    FROM games g JOIN (
-        SELECT $1::bigint AS game_id, COALESCE(COUNT(1), 0) AS cnt
-        FROM registrations
-        WHERE game_id = $1::bigint AND deleted_at IS NULL
-    ) r
-    ON g.id = r.game_id;
+    SELECT g.*, (
+        SELECT COUNT(1) FROM registrations
+        WHERE game_id = g.id AND deleted_at IS NULL
+    ) AS cnt
+    FROM games g
+    WHERE g.id = $1;
     `
-	var registrationOpenTime time.Time
-	var amount, reserve, cnt int64
-	err := tx.QueryRow(ctx, query, gameID).Scan(&amount, &reserve, &registrationOpenTime, &cnt)
+
+	var res usecase.GameWithRegistrations
+	err := tx.QueryRow(ctx, query, gameID).Scan(
+		&res.ID,
+		&res.CreatedAt,
+		&res.StartTime,
+		&res.Location,
+		&res.Name,
+		&res.MainAmount,
+		&res.ReserveAmount,
+		&res.RegistrationOpenTime,
+		&res.RegistrationsAmount,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return usecase.GameWithRegistrations{}, usecase.ErrNotFound
+	}
 	if err != nil {
-		return 0, 0, time.Time{}, 0, fmt.Errorf("can't check game registrations: %w", err)
+		return usecase.GameWithRegistrations{}, fmt.Errorf("can't get game with registrations: %w", err)
 	}
 
-	return amount, reserve, registrationOpenTime, cnt, nil
+	return res, nil
 }
 
+// CreateRegistration - сохраняет регистрацию в транзакции tx
 func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.Registrations) error {
 	// id выдаёт база, новая регистрация удалённой не бывает
 	stmt := table.Registrations.INSERT(
@@ -211,7 +231,8 @@ func (r repository) CreateRegistration(ctx context.Context, tx pgx.Tx, in model.
 	return nil
 }
 
-// DeleteRegistration - помечает регистрацию удалённой. ErrNotFound, если её нет в этой игре или она уже удалена.
+// DeleteRegistration - помечает регистрацию удалённой в транзакции tx.
+// usecase.ErrNotFound, если её нет в этой игре или она уже удалена
 func (r repository) DeleteRegistration(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -235,19 +256,13 @@ func (r repository) DeleteRegistration(
 		return fmt.Errorf("can't delete registration: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+		return usecase.ErrNotFound
 	}
 
 	return nil
 }
 
-type GameWithRegistrations struct {
-	model.Games
-
-	RegistrationsAmount int64
-}
-
-func (r repository) ListGames(ctx context.Context, page int64, perPage int64) ([]GameWithRegistrations, error) {
+func (r repository) ListGames(ctx context.Context, page int64, perPage int64) ([]usecase.GameWithRegistrations, error) {
 	query := `
     SELECT g.*, COALESCE(r.cnt, 0) AS cnt
     FROM games g LEFT JOIN (
@@ -261,14 +276,14 @@ func (r repository) ListGames(ctx context.Context, page int64, perPage int64) ([
     LIMIT $1 OFFSET $2;
     `
 
-	var res []GameWithRegistrations
+	var res []usecase.GameWithRegistrations
 	rows, err := r.db.Query(ctx, query, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, fmt.Errorf("can't select games: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var buf GameWithRegistrations
+		var buf usecase.GameWithRegistrations
 		cerr := rows.Scan(
 			&buf.ID,
 			&buf.CreatedAt,

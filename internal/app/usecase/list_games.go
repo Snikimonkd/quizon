@@ -3,12 +3,18 @@ package usecase
 import (
 	"context"
 
-	"quizon/internal/app/repository"
 	"quizon/internal/generated/postgres/public/model"
 )
 
 type ListGamesRepository interface {
-	ListGames(ctx context.Context, page int64, perPage int64) ([]repository.GameWithRegistrations, error)
+	ListGames(ctx context.Context, page int64, perPage int64) ([]GameWithRegistrations, error)
+}
+
+// GameWithRegistrations - игра и число оставшихся в ней команд, удалённые не считаются
+type GameWithRegistrations struct {
+	model.Games
+
+	RegistrationsAmount int64
 }
 
 // GameListItem - игра и статус регистрации на неё в момент запроса

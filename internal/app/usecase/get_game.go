@@ -2,24 +2,19 @@ package usecase
 
 import (
 	"context"
-	"errors"
 
 	"quizon/internal/generated/postgres/public/model"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type GetGameRepository interface {
+	// GetGame - игра по id. ErrNotFound, если такой нет
 	GetGame(ctx context.Context, gameID int64) (model.Games, error)
 	RegistrationsAmount(ctx context.Context, gameID int64) (int64, error)
 }
 
-// GetGame - получить игру по id и статус регистрации на неё сейчас, как в списке игр
+// GetGame - получить игру по id и статус регистрации на неё сейчас, как в списке игр. ErrNotFound, если игры нет
 func (u usecase) GetGame(ctx context.Context, gameID int64) (GameListItem, error) {
 	game, err := u.repository.GetGame(ctx, gameID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return GameListItem{}, ErrNotFound
-	}
 	if err != nil {
 		return GameListItem{}, err
 	}
