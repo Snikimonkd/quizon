@@ -16,12 +16,62 @@ import (
 func TestNewServerAddr(t *testing.T) {
 	t.Parallel()
 
-	handler := http.NotFoundHandler()
-	if got := NewServer(handler, false).Addr; got != "127.0.0.1:8000" {
-		t.Errorf("prod addr = %q, want loopback only", got)
+	if got := NewServer(http.NotFoundHandler()).Addr; got != "127.0.0.1:8000" {
+		t.Errorf("addr = %q, want loopback only", got)
 	}
-	if got := NewServer(handler, true).Addr; got != ":8000" {
-		t.Errorf("debug addr = %q, want all interfaces", got)
+}
+
+// TestCrossOriginProtection - формы с чужих сайтов отклоняются, а свои формы, переходы по ссылкам и запросы
+// не из браузера проходят. Отказ попадает в журнал, как любой запрос
+func TestCrossOriginProtection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		method string
+		// site - заголовок Sec-Fetch-Site, origin - Origin. Пустые не отправляются
+		site   string
+		origin string
+		want   int
+	}{
+		{name: "own form", method: http.MethodPost, site: "same-origin", want: http.StatusOK},
+		{name: "foreign form", method: http.MethodPost, site: "cross-site", want: http.StatusForbidden},
+		{name: "link from foreign site", method: http.MethodGet, site: "cross-site", want: http.StatusOK},
+		// старый браузер без Sec-Fetch-Site: Origin сверяется с Host
+		{name: "old browser, own form", method: http.MethodPost, origin: "https://quiz-on.ru", want: http.StatusOK},
+		{
+			name:   "old browser, foreign form",
+			method: http.MethodPost,
+			origin: "https://evil.example",
+			want:   http.StatusForbidden,
+		},
+		// curl и скрипты этих заголовков не шлют
+		{name: "not a browser", method: http.MethodPost, want: http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			log, buf := testLogger()
+			called := false
+			h := withMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }), log)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, "https://quiz-on.ru/logout", nil)
+			if tt.site != "" {
+				req.Header.Set("Sec-Fetch-Site", tt.site)
+			}
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != tt.want || called != (tt.want == http.StatusOK) {
+				t.Errorf("status = %d, handler called = %v, want %d", rec.Code, called, tt.want)
+			}
+			if recs := records(t, buf); len(recs) != 1 || recs[0]["status"] != float64(tt.want) {
+				t.Errorf("records = %v, want one request record with status %d", recs, tt.want)
+			}
+		})
 	}
 }
 

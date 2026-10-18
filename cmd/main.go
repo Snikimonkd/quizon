@@ -15,14 +15,13 @@ import (
 )
 
 func main() {
-	// формат логов задаёт конфиг, поэтому его ошибку пишет логгер по умолчанию
+	logger.Setup()
+	slog.Info("runtime start")
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal("can't read config", err)
 	}
-
-	logger.Setup(cfg.Debug)
-	slog.Info("runtime start", "debug", cfg.Debug)
 
 	ctx := context.Background()
 
@@ -41,7 +40,7 @@ func main() {
 		logger.Fatal("can't init delivery ui", err)
 	}
 
-	server := config.NewServer(delivery, cfg.Debug)
+	server := config.NewServer(delivery)
 
 	slog.Info("starting server", "addr", server.Addr)
 	err = server.ListenAndServe()

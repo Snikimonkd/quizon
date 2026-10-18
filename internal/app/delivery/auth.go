@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"quizon/internal/app/usecase"
 )
@@ -68,17 +69,7 @@ func (wb *delivery) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:    sessionCookie,
-		Value:   session.Token,
-		Expires: session.ExpiresAt,
-		Path:    "/",
-		Domain:  wb.domain,
-		// только по https, из js не видна
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	http.SetCookie(w, wb.newSessionCookie(session.Token, session.ExpiresAt))
 	redirect(w, r, "/")
 }
 
@@ -88,14 +79,21 @@ func (wb *delivery) logout(w http.ResponseWriter, r *http.Request) {
 		wb.usecase.Logout(cookie.Value)
 	}
 
-	http.SetCookie(w, &http.Cookie{
+	// браузер удалит куку, только если имя, путь и домен совпадают с кукой входа
+	http.SetCookie(w, wb.newSessionCookie("", time.Unix(0, 0)))
+	redirect(w, r, "/")
+}
+
+// newSessionCookie - кука сессии админа: только по https, из js не видна
+func (wb *delivery) newSessionCookie(token string, expires time.Time) *http.Cookie {
+	return &http.Cookie{
 		Name:     sessionCookie,
-		Value:    "",
+		Value:    token,
+		Expires:  expires,
 		Path:     "/",
-		MaxAge:   -1,
+		Domain:   wb.domain,
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-	})
-	redirect(w, r, "/")
+	}
 }

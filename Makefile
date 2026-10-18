@@ -3,7 +3,7 @@ PG_DSN:=postgres://postgres@localhost:5432/postgres?sslmode=disable
 DOMAIN:=localhost
 
 run:
-	PG_DSN=$(PG_DSN) DOMAIN=$(DOMAIN) DEBUG=1 go run cmd/main.go
+	PG_DSN=$(PG_DSN) DOMAIN=$(DOMAIN) go run cmd/main.go
 
 postgres-up:
 	docker run -d --name quizon-postgres -e POSTGRES_HOST_AUTH_METHOD=trust -p 5432:5432 postgres:17

@@ -6,16 +6,10 @@ import (
 	"os"
 )
 
-// Setup - логгер по умолчанию для всего приложения, в том числе для стандартного log.
-// В продакшене JSON по записи на строку с уровнем info: такие логи фильтруются по полям.
-// При отладке (debug) — читаемый текст с уровнем debug
-func Setup(debug bool) {
-	var handler slog.Handler = slog.NewJSONHandler(os.Stdout, nil)
-	if debug {
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
-	}
-
-	slog.SetDefault(slog.New(handler))
+// Setup - логгер по умолчанию для всего приложения, в том числе для стандартного log:
+// JSON по записи на строку с уровнем info, такие логи фильтруются по полям. Локально логи такие же, как на проде
+func Setup() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 }
 
 // Fatal - ошибка, после которой работать нельзя (обычно при запуске): пишет её и завершает процесс

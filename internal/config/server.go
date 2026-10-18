@@ -8,33 +8,34 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-const (
-	// addr - только loopback: снаружи запросы приходят через Caddy на том же сервере, напрямую порт недоступен
-	addr string = `127.0.0.1:8000`
-	// debugAddr - для локальной разработки все интерфейсы: сайт открывается с телефона по IP компьютера
-	debugAddr string = `:8000`
-)
+// addr - только loopback: на проде запросы приходят через Caddy на том же сервере, напрямую порт недоступен
+const addr string = `127.0.0.1:8000`
 
-// NewServer - собирает http-сервер вокруг handler. debug — см. Config.Debug
-func NewServer(handler http.Handler, debug bool) *http.Server {
+// NewServer - собирает http-сервер вокруг handler
+func NewServer(handler http.Handler) *http.Server {
 	log := slog.Default()
 
-	// id запроса нужен журналу: по нему ошибка обработчика находится рядом со строкой самого запроса.
-	// recoverer внутри журнала: ответ 500 после паники тоже попадает в журнал
-	handler = middleware.RequestID(requestLogger(log)(recoverer(log)(handler)))
-
-	listen := addr
-	if debug {
-		listen = debugAddr
-	}
-
 	return &http.Server{
-		Addr:              listen,
-		Handler:           handler,
+		Addr:              addr,
+		Handler:           withMiddleware(handler, log),
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelError),
 		ReadTimeout:       time.Second * 5,
 		ReadHeaderTimeout: time.Second * 5,
 		WriteTimeout:      time.Second * 5,
 		IdleTimeout:       time.Second * 5,
 	}
+}
+
+// withMiddleware - обёртки всех запросов, изнутри наружу
+func withMiddleware(handler http.Handler, log *slog.Logger) http.Handler {
+	// запросы с чужих сайтов, кроме GET, HEAD и OPTIONS, получают 403: чужая страница не отправит форму
+	// админки от имени вошедшего админа (CSRF). Проверка по заголовкам Sec-Fetch-Site и Origin дополняет
+	// SameSite у куки входа и стоит внутри журнала, так что отказы тоже в него попадают
+	handler = http.NewCrossOriginProtection().Handler(handler)
+	// recoverer внутри журнала: ответ 500 после паники тоже попадает в журнал
+	handler = recoverer(log)(handler)
+	handler = requestLogger(log)(handler)
+
+	// id запроса нужен журналу: по нему ошибка обработчика находится рядом со строкой самого запроса
+	return middleware.RequestID(handler)
 }
