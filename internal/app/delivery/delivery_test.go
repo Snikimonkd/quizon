@@ -780,6 +780,22 @@ func TestLogin(t *testing.T) {
 	})
 }
 
+func TestLogout(t *testing.T) {
+	t.Parallel()
+
+	uc := mockUsecase(t)
+	uc.EXPECT().Logout(adminToken)
+	rec := do(t, newTestRouter(t, uc), request{method: http.MethodPost, path: "/logout", admin: true})
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+		t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+	// браузер удалит куку, только если имя, путь и домен совпадают с кукой входа
+	assertContains(t, rec.Header().Get("Set-Cookie"),
+		sessionCookie+"=;", "Expires=Thu, 01 Jan 1970 00:00:00 GMT", "Domain="+testDomain,
+		"Path=/", "HttpOnly", "Secure", "SameSite=Lax",
+	)
+}
+
 func TestCreateGame(t *testing.T) {
 	t.Parallel()
 
