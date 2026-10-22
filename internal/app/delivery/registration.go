@@ -120,7 +120,7 @@ func (f registrationForm) fields(errs map[string]string) []field {
 		},
 		{
 			Name: "players_amount", Label: "Сколько человек придёт", Type: inputNumber, Value: f.PlayersAmount,
-			Placeholder: "6", InputMode: inputModeNumeric, Min: "1", Required: true, Error: errs["PlayersAmount"],
+			Placeholder: "8", InputMode: inputModeNumeric, Min: "1", Required: true, Error: errs["PlayersAmount"],
 		},
 	}
 }
