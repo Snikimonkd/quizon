@@ -20,6 +20,7 @@ type Repository interface {
 	RegisterRepository
 	DeleteRegistrationRepository
 	CreateGameRepository
+	UpdateGameRepository
 	LoginRepository
 }
 
@@ -28,7 +29,7 @@ type Repository interface {
 type TxRepository interface {
 	// Transactional - выполняет fn в одной транзакции: коммит, если fn вернула nil, иначе откат
 	Transactional(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
-	// LockGame - блокирует игру до конца транзакции: регистрации и удаления в одной игре идут по очереди
+	// LockGame - блокирует игру до конца транзакции, чтобы изменения игры и регистраций шли по очереди
 	LockGame(ctx context.Context, tx pgx.Tx, gameID int64) error
 }
 

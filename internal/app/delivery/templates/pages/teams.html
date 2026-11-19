@@ -5,6 +5,7 @@
     <h1>Участники</h1>
     <p>{{.Game.Name}}, КвизON №{{.Game.ID}}, {{ruDateTime .Game.StartTime}}</p>
   </hgroup>
+  <p><a href="/admin/games/{{.Game.ID}}/edit">Редактировать игру</a></p>
   <div id="teams">
     {{template "teams" .}}
   </div>

@@ -468,3 +468,41 @@ func (c *MockRepositoryTransactionalCall) DoAndReturn(f func(context.Context, fu
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// UpdateGame mocks base method.
+func (m *MockRepository) UpdateGame(ctx context.Context, tx pgx.Tx, gameID int64, in model.Games) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGame", ctx, tx, gameID, in)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGame indicates an expected call of UpdateGame.
+func (mr *MockRepositoryMockRecorder) UpdateGame(ctx, tx, gameID, in any) *MockRepositoryUpdateGameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGame", reflect.TypeOf((*MockRepository)(nil).UpdateGame), ctx, tx, gameID, in)
+	return &MockRepositoryUpdateGameCall{Call: call}
+}
+
+// MockRepositoryUpdateGameCall wrap *gomock.Call
+type MockRepositoryUpdateGameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRepositoryUpdateGameCall) Return(arg0 error) *MockRepositoryUpdateGameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRepositoryUpdateGameCall) Do(f func(context.Context, pgx.Tx, int64, model.Games) error) *MockRepositoryUpdateGameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRepositoryUpdateGameCall) DoAndReturn(f func(context.Context, pgx.Tx, int64, model.Games) error) *MockRepositoryUpdateGameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

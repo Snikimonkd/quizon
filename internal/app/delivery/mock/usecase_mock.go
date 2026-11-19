@@ -387,3 +387,41 @@ func (c *MockUsecaseLogoutCall) DoAndReturn(f func(string)) *MockUsecaseLogoutCa
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// UpdateGame mocks base method.
+func (m *MockUsecase) UpdateGame(ctx context.Context, gameID int64, in model.Games) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGame", ctx, gameID, in)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGame indicates an expected call of UpdateGame.
+func (mr *MockUsecaseMockRecorder) UpdateGame(ctx, gameID, in any) *MockUsecaseUpdateGameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGame", reflect.TypeOf((*MockUsecase)(nil).UpdateGame), ctx, gameID, in)
+	return &MockUsecaseUpdateGameCall{Call: call}
+}
+
+// MockUsecaseUpdateGameCall wrap *gomock.Call
+type MockUsecaseUpdateGameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUsecaseUpdateGameCall) Return(arg0 error) *MockUsecaseUpdateGameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUsecaseUpdateGameCall) Do(f func(context.Context, int64, model.Games) error) *MockUsecaseUpdateGameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUsecaseUpdateGameCall) DoAndReturn(f func(context.Context, int64, model.Games) error) *MockUsecaseUpdateGameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

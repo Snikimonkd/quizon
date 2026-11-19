@@ -53,7 +53,10 @@
   {{template "show_facts" .}}
   {{if .Admin}}
   <p class="show__status">{{template "game_status" .}}</p>
-  <a class="show__cta" href="/admin/games/{{.ID}}/teams">Список участников</a>
+  <div class="show__actions">
+    <a class="show__cta" href="/admin/games/{{.ID}}/teams">Список участников</a>
+    <a class="show__cta" href="/admin/games/{{.ID}}/edit">Редактировать игру</a>
+  </div>
   {{else if eq .State "open"}}
   <a class="show__cta" href="/games/{{.ID}}/register">Регистрация открыта</a>
   {{else if eq .State "reserve"}}
@@ -73,7 +76,11 @@
 <li class="archive__row">
   <p class="archive__date"><time datetime="{{iso .StartTime}}">{{ruDate .StartTime}}</time>, {{ruWeekday .StartTime}}</p>
   <p class="archive__name">{{.Name}}, КвизON №{{.ID}}</p>
-  {{if .Admin}}<a class="archive__teams" href="/admin/games/{{.ID}}/teams">Список участников</a>
+  {{if .Admin}}
+  <div class="archive__actions">
+    <a href="/admin/games/{{.ID}}/teams">Список участников</a>
+    <a href="/admin/games/{{.ID}}/edit">Редактировать игру</a>
+  </div>
   {{- else}}<span class="visually-hidden">Игра завершена</span>{{end}}
 </li>
 {{end}}

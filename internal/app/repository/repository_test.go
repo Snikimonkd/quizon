@@ -84,6 +84,60 @@ func Test_repository_GetPassword(t *testing.T) {
 	}
 }
 
+func Test_repository_UpdateGame(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	db := testsupport.ConnectToTestPostgres(ctx, t)
+	r := NewRepository(db)
+	u := usecase.NewUsecase(r, nil, nil)
+	now := time.Now().UTC().Truncate(time.Second)
+	original := model.Games{
+		CreatedAt:            now,
+		StartTime:            now.Add(48 * time.Hour),
+		Location:             "Старый зал",
+		Name:                 "Старая игра",
+		MainAmount:           3,
+		ReserveAmount:        1,
+		RegistrationOpenTime: now,
+	}
+	gameID := testsupport.InsertGame(ctx, t, db, original)
+	otherID := testsupport.InsertGame(ctx, t, db, original)
+	updated := model.Games{
+		ID:                   otherID,
+		CreatedAt:            now.Add(time.Hour),
+		StartTime:            now.Add(72 * time.Hour),
+		Location:             "Новый зал",
+		Name:                 "Новая игра",
+		MainAmount:           4,
+		ReserveAmount:        0,
+		RegistrationOpenTime: now.Add(24 * time.Hour),
+	}
+	err := u.UpdateGame(ctx, gameID, updated)
+	if err != nil {
+		t.Fatalf("update game: %v", err)
+	}
+	err = u.UpdateGame(ctx, 0, updated)
+	if !errors.Is(err, usecase.ErrNotFound) {
+		t.Errorf("unknown game: err = %v, want ErrNotFound", err)
+	}
+
+	updated.ID, updated.CreatedAt = gameID, original.CreatedAt
+	original.ID = otherID
+	for _, want := range []model.Games{updated, original} {
+		got, err := r.GetGame(ctx, want.ID)
+		if err != nil {
+			t.Fatalf("get game %d: %v", want.ID, err)
+		}
+		got.CreatedAt = got.CreatedAt.UTC()
+		got.StartTime = got.StartTime.UTC()
+		got.RegistrationOpenTime = got.RegistrationOpenTime.UTC()
+		if got != want {
+			t.Errorf("game %d = %+v, want %+v", want.ID, got, want)
+		}
+	}
+}
+
 // gameWithDeletedTeam - игра с тремя командами, вторая из которых удалена.
 // Возвращает id игры и id регистраций в порядке подачи.
 func gameWithDeletedTeam(ctx context.Context, t *testing.T, db *pgxpool.Pool) (int64, []int64) {

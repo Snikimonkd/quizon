@@ -666,8 +666,21 @@ a.show__cta:active {
   line-height: 1.4;
 }
 
-.show__status + .show__cta {
+.show__actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-top: 0.75rem;
+}
+
+.show__actions .show__cta {
+  flex: 1 1 9rem;
+  justify-content: center;
+  margin: 0;
+  padding: 0.875rem 0.5rem;
+  font-size: 1rem;
+  text-align: center;
 }
 
 /* Обратный отсчёт: цифры шрифта разной ширины, поэтому у отсчёта постоянная ширина,
@@ -810,8 +823,8 @@ a.show__cta:active {
 
 .archive__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "date teams" "name teams";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "date" "name";
   align-items: center;
   gap: 0.125rem 1rem;
   margin: 0;
@@ -843,8 +856,13 @@ a.show__cta:active {
   line-height: 1.35;
 }
 
-.archive__teams {
-  grid-area: teams;
+.archive__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+
+.archive__actions a {
   color: var(--q-gold);
   font-size: 0.9375rem;
   font-weight: 500;
@@ -852,7 +870,7 @@ a.show__cta:active {
   text-underline-offset: 0.2em;
 }
 
-.archive__teams:hover {
+.archive__actions a:hover {
   color: var(--q-gold-light);
 }
 
@@ -860,8 +878,12 @@ a.show__cta:active {
 @media (min-width: 48rem) {
   .archive__row {
     grid-template-columns: 15rem minmax(0, 1fr) auto;
-    grid-template-areas: "date name teams";
+    grid-template-areas: "date name actions";
     align-items: baseline;
+  }
+
+  .archive__actions {
+    grid-area: actions;
   }
 }
 

@@ -34,6 +34,7 @@ type Usecase interface {
 	GetGame(ctx context.Context, gameID int64) (usecase.GameListItem, error)
 	CreateRegistration(ctx context.Context, in model.Registrations) (usecase.RegistrationStatus, error)
 	CreateGame(ctx context.Context, in model.Games) (int64, error)
+	UpdateGame(ctx context.Context, gameID int64, in model.Games) error
 	ListRegistrations(ctx context.Context, gameID int64) ([]usecase.Registration, error)
 	DeleteRegistration(ctx context.Context, gameID int64, registrationID int64) error
 	Login(ctx context.Context, login, password string) (usecase.Session, error)
@@ -99,6 +100,8 @@ func (wb *delivery) routes(static fs.FS) http.Handler {
 		r.Use(wb.requireAdmin)
 		r.Get("/admin/games/new", wb.newGamePage)
 		r.Post("/admin/games/new", wb.createGame)
+		r.Get("/admin/games/{id}/edit", wb.editGamePage)
+		r.Post("/admin/games/{id}/edit", wb.updateGame)
 		r.Get("/admin/games/{id}/teams", wb.teamsPage)
 		r.Get("/admin/games/{id}/teams.xlsx", wb.exportTeams)
 		r.Post("/admin/games/{id}/teams/{registrationID}/delete", wb.deleteRegistration)
