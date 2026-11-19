@@ -8,11 +8,12 @@ const (
 	pageRegister page = "register"
 	pageLogin    page = "login"
 	pageGameNew  page = "game_new"
+	pageGameEdit page = "game_edit"
 	pageTeams    page = "teams"
 )
 
 // allPages - все страницы. parsePages проверяет, что у каждой есть шаблон и что лишних шаблонов нет
-var allPages = []page{pageHome, pageRegister, pageLogin, pageGameNew, pageTeams}
+var allPages = []page{pageHome, pageRegister, pageLogin, pageGameNew, pageGameEdit, pageTeams}
 
 func (p page) templatePath() string {
 	return "templates/pages/" + string(p) + ".html"
@@ -26,6 +27,7 @@ const (
 	titleRegister pageTitle = "Регистрация на игру"
 	titleLogin    pageTitle = "Вход"
 	titleGameNew  pageTitle = "Новая игра"
+	titleGameEdit pageTitle = "Редактирование игры"
 	titleTeams    pageTitle = "Участники"
 )
 
@@ -40,6 +42,8 @@ func (p page) title() pageTitle {
 		return titleLogin
 	case pageGameNew:
 		return titleGameNew
+	case pageGameEdit:
+		return titleGameEdit
 	case pageTeams:
 		return titleTeams
 	}

@@ -326,6 +326,33 @@ func (r repository) CreateGame(ctx context.Context, game model.Games) (int64, er
 	return res, nil
 }
 
+// UpdateGame - обновляет настройки игры по id. usecase.ErrNotFound, если игры нет.
+func (r repository) UpdateGame(ctx context.Context, tx pgx.Tx, gameID int64, game model.Games) error {
+	stmt := table.Games.UPDATE(
+		table.Games.StartTime,
+		table.Games.Location,
+		table.Games.Name,
+		table.Games.MainAmount,
+		table.Games.ReserveAmount,
+		table.Games.RegistrationOpenTime,
+	).MODEL(
+		game,
+	).WHERE(
+		table.Games.ID.EQ(postgres.Int64(gameID)),
+	)
+
+	query, args := stmt.Sql()
+	tag, err := tx.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("can't update game: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return usecase.ErrNotFound
+	}
+
+	return nil
+}
+
 func (r repository) rollbackUnlessCommited(ctx context.Context, tx pgx.Tx) {
 	err := tx.Rollback(ctx)
 	if errors.Is(err, pgx.ErrTxClosed) {

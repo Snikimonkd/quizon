@@ -32,6 +32,7 @@ const (
 	registerPath string = "/games/7/register"
 	loginPath    string = "/login"
 	newGamePath  string = "/admin/games/new"
+	editGamePath string = "/admin/games/7/edit"
 	teamsPath    string = "/admin/games/7/teams"
 	adminLogin   string = "admin"
 	// testDomain - домен куки входа в тестах
@@ -260,7 +261,7 @@ func TestHome(t *testing.T) {
 			`>16 октября 2026</time>, пятница</p>`,
 		)
 		assertNotContains(t, body,
-			"/games/3/register", "/games/4/register", "Список участников",
+			"/games/3/register", "/games/4/register", "Список участников", "Редактировать игру",
 			"Free", "с команды", "ticket__time", "show--finished",
 		)
 
@@ -286,12 +287,14 @@ func TestHome(t *testing.T) {
 
 		rec := home(t, true)
 		assertContains(t, rec.Body.String(),
-			`href="/admin/games/1/teams"`,
+			`href="/admin/games/1/teams">Список участников</a>`,
+			`href="/admin/games/1/edit">Редактировать игру</a>`,
 			"Создать игру",
 			"Выйти",
-			// у организатора состояние регистрации словами, ссылка на участников есть и у прошедшей игры
+			// у организатора состояние регистрации словами, действия есть и у прошедшей игры
 			`<p class="show__status">Регистрация открыта</p>`,
-			`<a class="archive__teams" href="/admin/games/5/teams">Список участников</a>`,
+			`href="/admin/games/5/teams">Список участников</a>`,
+			`href="/admin/games/5/edit">Редактировать игру</a>`,
 		)
 	})
 }
@@ -529,6 +532,7 @@ func TestRuleMessagesCoverUsecase(t *testing.T) {
 	for _, game := range []model.Games{{}, {StartTime: testNow, RegistrationOpenTime: testNow, ReserveAmount: -1}} {
 		_, err := uc.CreateGame(t.Context(), game)
 		covered(t, gameRuleMessages, err)
+		covered(t, gameRuleMessages, uc.UpdateGame(t.Context(), 7, game))
 	}
 	for _, reg := range []model.Registrations{{}, {Phone: "123"}} {
 		_, err := uc.CreateRegistration(t.Context(), reg)
@@ -699,7 +703,6 @@ func TestAdminRequiresLogin(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
 		t.Errorf("guest: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
 	}
-
 	rec = do(t, h, request{method: http.MethodGet, path: newGamePath, htmx: true})
 	if rec.Code != http.StatusNoContent || rec.Header().Get("Hx-Redirect") != loginPath {
 		t.Errorf("htmx guest: status = %d, hx-redirect = %q", rec.Code, rec.Header().Get("Hx-Redirect"))
@@ -725,6 +728,18 @@ func TestAdminRequiresLogin(t *testing.T) {
 	location := strings.Index(body, `name="location"`)
 	if start < 0 || open < start || location < open {
 		t.Errorf("fields order: start_time=%d, registration_open_time=%d, location=%d", start, open, location)
+	}
+}
+
+func TestEditGameRequiresLogin(t *testing.T) {
+	t.Parallel()
+
+	h := newTestRouter(t, mockUsecase(t))
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		rec := do(t, h, request{method: method, path: editGamePath})
+		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != loginPath {
+			t.Errorf("guest %s %s: status = %d, location = %q", method, editGamePath, rec.Code, rec.Header().Get("Location"))
+		}
 	}
 }
 
@@ -864,6 +879,70 @@ func TestCreateGame(t *testing.T) {
 	})
 }
 
+func TestUpdateGame(t *testing.T) {
+	t.Parallel()
+
+	game := testGame()
+	game.StartTime = game.StartTime.UTC()
+	game.RegistrationOpenTime = game.RegistrationOpenTime.UTC().Add(32015 * time.Millisecond)
+	uc := mockUsecase(t)
+	uc.EXPECT().GetGame(gomock.Any(), game.ID).Return(usecase.GameListItem{Games: game}, nil).Times(4)
+	h := newTestRouter(t, uc)
+	rec := do(t, h, request{method: http.MethodGet, path: editGamePath, admin: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("edit page: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	assertContains(t, rec.Body.String(),
+		`action="`+editGamePath+`"`,
+		`name="name" type="text" value="`+game.Name+`"`,
+		`name="location" type="text" value="`+game.Location+`"`,
+		`name="start_time" type="datetime-local" value="2026-10-19T12:00"`,
+		`name="registration_open_time" type="datetime-local" value="2026-10-16T11:00"`,
+		`name="main_amount" type="number" value="2"`,
+		`name="reserve_amount" type="number" value="1"`,
+	)
+
+	form := url.Values{
+		"name":                   {"Осенняя игра"},
+		"location":               {game.Location},
+		"start_time":             {"2026-10-19T12:30"},
+		"registration_open_time": {"2026-10-16T11:00"},
+		"main_amount":            {"3"},
+		"reserve_amount":         {"0"},
+	}
+	game.ID = 0
+	game.Name = "Осенняя игра"
+	game.StartTime = game.StartTime.In(utils.LocMsk).Add(30 * time.Minute)
+	game.MainAmount = 3
+	game.ReserveAmount = 0
+
+	bad := maps.Clone(form)
+	bad.Set("start_time", "")
+	invalid := game
+	invalid.StartTime = time.Time{}
+	uc.EXPECT().UpdateGame(gomock.Any(), int64(7), invalid).Return(usecase.ValidationError{
+		usecase.FieldStartTime: usecase.ErrRequired,
+	})
+	rec = do(t, h, request{method: http.MethodPost, path: editGamePath, form: bad, admin: true})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid update: status = %d", rec.Code)
+	}
+	assertContains(t, rec.Body.String(), `action="`+editGamePath+`"`, `value="Осенняя игра"`, "Укажите дату и время игры")
+
+	req := request{method: http.MethodPost, path: editGamePath, form: form, admin: true}
+	uc.EXPECT().UpdateGame(gomock.Any(), int64(7), game).Return(nil)
+	rec = do(t, h, req)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != teamsPath {
+		t.Fatalf("successful update: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+
+	uc.EXPECT().UpdateGame(gomock.Any(), int64(7), game).Return(usecase.ErrNotFound)
+	rec = do(t, h, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown game: status = %d", rec.Code)
+	}
+}
+
 // teamsRouter - веб-интерфейс, где у игры game команды teams
 func teamsRouter(t *testing.T, game model.Games, teams []usecase.Registration) http.Handler {
 	t.Helper()
@@ -890,6 +969,7 @@ func TestTeamsPage(t *testing.T) {
 		`<dt>мест в основе</dt><dd>2</dd>`,
 		`<dt>мест в резерве</dt><dd>1</dd>`,
 		teamName(teams, 2),
+		`href="`+editGamePath+`"`,
 		"/admin/games/7/teams.xlsx",
 		// основной состав 2, третья команда первая в резерве: над ней линия
 		`<tr class="is-reserve reserve-start">`,

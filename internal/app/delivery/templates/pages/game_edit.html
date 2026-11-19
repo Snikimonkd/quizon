@@ -1,0 +1,12 @@
+{{define "content"}}
+{{with .Page}}
+<section class="sheet">
+  <h1 class="sheet__sign marquee">Редактирование игры №{{.GameID}}</h1>
+  <form method="post" action="/admin/games/{{.GameID}}/edit">
+    {{range .Fields}}{{template "field" .}}{{end}}
+    <button type="submit">Сохранить изменения</button>
+  </form>
+  <a href="/admin/games/{{.GameID}}/teams">К списку участников</a>
+</section>
+{{end}}
+{{end}}

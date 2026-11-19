@@ -117,6 +117,23 @@ func (f gameForm) game() model.Games {
 	}
 }
 
+func gameFormTime(t time.Time) string {
+	return t.In(utils.LocMsk).Format(datetimeLocal)
+}
+
+func (f gameForm) updatedGame(current model.Games) model.Games {
+	game := f.game()
+	// Форма показывает минуты. Если поле не меняли, сохраняем полную точность времени в базе.
+	if f.StartTime == gameFormTime(current.StartTime) {
+		game.StartTime = current.StartTime
+	}
+	if f.RegistrationOpenTime == gameFormTime(current.RegistrationOpenTime) {
+		game.RegistrationOpenTime = current.RegistrationOpenTime
+	}
+
+	return game
+}
+
 func (f gameForm) fields(errs map[string]string) []field {
 	return []field{
 		{
@@ -147,6 +164,7 @@ func (f gameForm) fields(errs map[string]string) []field {
 }
 
 type gameFormView struct {
+	GameID int64
 	Fields []field
 }
 
@@ -189,15 +207,62 @@ func (wb *delivery) renderGameForm(w http.ResponseWriter, r *http.Request, form 
 	wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameNew, gameFormView{Fields: form.fields(errs)})
 }
 
+func (wb *delivery) editGamePage(w http.ResponseWriter, r *http.Request) {
+	game, ok := wb.loadGame(w, r)
+	if !ok {
+		return
+	}
+
+	form := gameForm{
+		Name:                 game.Name,
+		Location:             game.Location,
+		StartTime:            gameFormTime(game.StartTime),
+		RegistrationOpenTime: gameFormTime(game.RegistrationOpenTime),
+		MainAmount:           strconv.FormatInt(game.MainAmount, 10),
+		ReserveAmount:        strconv.FormatInt(game.ReserveAmount, 10),
+	}
+	wb.renderPage(w, r, http.StatusOK, pageGameEdit, gameFormView{GameID: game.ID, Fields: form.fields(nil)})
+}
+
+func (wb *delivery) updateGame(w http.ResponseWriter, r *http.Request) {
+	game, ok := wb.loadGame(w, r)
+	if !ok {
+		return
+	}
+
+	form := parseGameForm(r)
+	errs := form.validate()
+	if len(errs) == 0 {
+		err := wb.usecase.UpdateGame(r.Context(), game.ID, form.updatedGame(game.Games))
+		invalid, isInvalid := errors.AsType[usecase.ValidationError](err)
+		switch {
+		case err == nil:
+			redirect(w, r, fmt.Sprintf("/admin/games/%d/teams", game.ID))
+			return
+		case isInvalid:
+			errs = gameRuleMessages.messages(invalid)
+		case errors.Is(err, usecase.ErrNotFound):
+			http.NotFound(w, r)
+			return
+		default:
+			wb.serverError(w, r, err)
+			return
+		}
+	}
+
+	view := gameFormView{GameID: game.ID, Fields: form.fields(errs)}
+	wb.renderPage(w, r, http.StatusUnprocessableEntity, pageGameEdit, view)
+}
+
 type teamsView struct {
 	Game gameView
 	// Teams - все регистрации в порядке подачи, удалённые тоже: в таблице они серые и без номера
 	Teams []usecase.Registration
 	// ActiveCount - сколько команд осталось в игре, без удалённых
 	ActiveCount int
-	// MainAmount - мест в основе, как задали при создании игры
+	// MainAmount - мест в основе по настройкам игры
 	MainAmount int64
-	// ReserveAmount - мест в резерве, как задали при создании игры
+	// ReserveAmount - мест в резерве по настройкам игры
 	ReserveAmount int64
 }
 
